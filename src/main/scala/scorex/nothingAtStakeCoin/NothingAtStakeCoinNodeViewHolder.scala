@@ -1,0 +1,10 @@
+package scorex.nothingAtStakeCoin
+
+import scorex.core.NodeViewHolder
+import scorex.core.transaction.box.proposition.PublicKey25519Proposition
+import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock
+
+class NothingAtStakeCoinNodeViewHolder extends NodeViewHolder[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock] {
+
+}

@@ -1,0 +1,10 @@
+package scorex.nothingAtStakeCoin
+
+import scorex.core.LocalInterface
+import scorex.core.transaction.box.proposition.PublicKey25519Proposition
+import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock
+
+class NothingAtStakeCoinLocalInterface extends LocalInterface[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock]{
+
+}
