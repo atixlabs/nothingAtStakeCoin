@@ -36,7 +36,7 @@ class NothingAtStakeCoin(settingsFilename: String) extends Application {
 
   override val apiTypes: Seq[Type] = Seq(typeOf[UtilsApiRoute], typeOf[NodeViewApiRoute[P, TX]])
 
-  override protected val additionalMessageSpecs: Seq[MessageSpec[_]] = _
+  override protected val additionalMessageSpecs: Seq[MessageSpec[_]] = ???
 
   override val nodeViewSynchronizer: ActorRef = actorSystem.actorOf(Props(classOf[NodeViewSynchronizer[P, TX, NothingAtStakeCoinSyncInfo, NothingAtStakeSyncInfoSpec]]))
   override val localInterface: ActorRef = actorSystem.actorOf(Props(classOf[NothingAtStakeCoinLocalInterface]))
