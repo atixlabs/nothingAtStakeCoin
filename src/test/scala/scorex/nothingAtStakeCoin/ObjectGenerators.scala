@@ -1,4 +1,4 @@
-package nothingAtStakeCoin
+package scorex.nothingAtStakeCoin
 
 import org.scalacheck.{Arbitrary, Gen}
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition

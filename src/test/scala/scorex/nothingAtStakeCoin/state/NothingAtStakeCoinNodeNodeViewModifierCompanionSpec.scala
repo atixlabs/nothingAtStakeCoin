@@ -1,7 +1,8 @@
-import nothingAtStakeCoin.ObjectGenerators
+package scorex.nothingAtStakeCoin.state
+
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
-import scorex.nothingAtStakeCoin.state.{NothingAtStakeCoinNodeNodeViewModifierCompanion, NothingAtStakeCoinTransaction}
+import scorex.nothingAtStakeCoin.ObjectGenerators
 
 class NothingAtStakeCoinNodeNodeViewModifierCompanionSpec extends PropSpec
   with PropertyChecks
@@ -13,6 +14,8 @@ class NothingAtStakeCoinNodeNodeViewModifierCompanionSpec extends PropSpec
     forAll(nothingAtSakeCoinTransactionGenerator) { tx: NothingAtStakeCoinTransaction =>
       val asBytes = NothingAtStakeCoinNodeNodeViewModifierCompanion.bytes(tx)
       val asObject = NothingAtStakeCoinNodeNodeViewModifierCompanion.parse(asBytes).get
+      val asBytesAgain = NothingAtStakeCoinNodeNodeViewModifierCompanion.bytes(asObject)
+      asBytes shouldEqual asBytesAgain
     }
   }
 }
