@@ -9,12 +9,15 @@ import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.nothingAtStakeCoin.state.{NothingAtStakeCoinNodeNodeViewModifierCompanion, NothingAtStakeCoinTransaction}
 import shapeless.{::, HNil}
 import com.google.common.primitives.{Ints, Longs}
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.GenerationSignature
 
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success, Try}
 
 case class NothingAtStakeCoinBlock( override val parentId:ModifierId,
                                     override val timestamp: Timestamp,
-                                    txs:Seq[NothingAtStakeCoinTransaction]
+                                    generationSignature: GenerationSignature,
+                                    generator: PublicKey25519Proposition,
+                                    txs: Seq[NothingAtStakeCoinTransaction]
                                   )
   extends Block[PublicKey25519Proposition, NothingAtStakeCoinTransaction] {
 
@@ -44,12 +47,18 @@ case class NothingAtStakeCoinBlock( override val parentId:ModifierId,
 
 object NothingAtStakeCoinBlock{
   type CoinAgeLength = Long
+
+  type GenerationSignature = Array[Byte]
+
+  val SignatureLength = 64
 }
 
 object NothingAtStakeCoinBlockCompanion extends NodeViewModifierCompanion[NothingAtStakeCoinBlock] {
   override def bytes(block: NothingAtStakeCoinBlock): Array[Byte] = {
     block.parentId ++
     Longs.toByteArray(block.timestamp) ++
+    block.generationSignature ++
+    block.generator.pubKeyBytes ++
     Array(block.version) ++
     Longs.toByteArray(block.coinAge) ++ {
       val cntTxs = Ints.toByteArray(block.txs.size)
@@ -63,13 +72,15 @@ object NothingAtStakeCoinBlockCompanion extends NodeViewModifierCompanion[Nothin
     val version = bytes.slice(Block.BlockIdLength + 8, Block.BlockIdLength + 9).head
     val coinAge = bytes.slice(Block.BlockIdLength + 9, Block.BlockIdLength + 17)
     val s0 = Block.BlockIdLength + 17
-    //TODO: Add generator and signature?
-    val cntTxs = Ints.fromByteArray(bytes.slice(s0, s0 + 4))
-    val s1 = s0 + 4
-    val txsBytes = bytes.slice(s1, s1 + bytes.length-1)
+    val generationSignature = bytes.slice(s0, s0 + NothingAtStakeCoinBlock.SignatureLength)
+    val generator = PublicKey25519Proposition(bytes.slice(s0 + NothingAtStakeCoinBlock.SignatureLength,
+                                                          s0 + NothingAtStakeCoinBlock.SignatureLength + 32))
+    val s1 = s0 + NothingAtStakeCoinBlock.SignatureLength + 32
+    val cntTxs = Ints.fromByteArray(bytes.slice(s1, s1 + 4))
+    val txsBytes = bytes.slice(s1 + 4, s1 + 4 + bytes.length-1)
     val txs = NothingAtStakeCoinNodeNodeViewModifierCompanion.parseTransactionsArray(cntTxs, txsBytes)
     txs match{
-      case Success(t) => NothingAtStakeCoinBlock(parentId, timestamp, t)
+      case Success(t) => NothingAtStakeCoinBlock(parentId, timestamp, generationSignature, generator, t)
       case Failure(e) => throw e
     }
   }
