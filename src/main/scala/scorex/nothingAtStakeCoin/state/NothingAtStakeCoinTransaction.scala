@@ -15,7 +15,7 @@ import scorex.crypto.signatures.Curve25519
 import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction._
 import scorex.nothingAtStakeCoin.transaction.PublicKey25519NoncedBox
 
-import scala.util.Try
+import scala.util.{Try, Success, Failure}
 
 case class NothingAtStakeCoinInput(proposition: PublicKey25519Proposition, nonce: Nonce)
 
@@ -94,6 +94,33 @@ object NothingAtStakeCoinNodeNodeViewModifierCompanion extends NodeViewModifierC
       NothingAtStakeCoinOutput(PublicKey25519Proposition(pk), v)
     }
     NothingAtStakeCoinTransaction(from, to, signatures, fee, timestamp)
+  }
+
+  private def transactionSize(sigLength: Int, fromLength: Int, toLength: Int): Int = {
+    val sigSize = Curve25519.SignatureLength
+    val elementLength = 8 + Curve25519.KeyLength
+    28 + sigLength*sigSize + fromLength*elementLength + toLength*elementLength
+  }
+
+  def parseTransactionsArray(cntTxs: Int, bytes: Array[Byte]): Try[Seq[NothingAtStakeCoinTransaction]] = Try {
+    val offsetSigLength: Int = 16
+    val offsetFromLength: Int = 20
+    val offsetToLength: Int = 24
+    val reverseTxs : Seq[NothingAtStakeCoinTransaction] =
+      (0 until cntTxs).foldLeft[(Seq[NothingAtStakeCoinTransaction], Int)](Tuple2(Seq(), 0)) {
+        (rec, i) => (Seq(), 0)
+          val (prevTxs, partialSumSize) = rec
+          val sigLength = Ints.fromByteArray(bytes.slice(partialSumSize + offsetSigLength, partialSumSize + offsetSigLength + 4))
+          val fromLength = Ints.fromByteArray(bytes.slice(partialSumSize + offsetFromLength, partialSumSize + offsetFromLength + 4))
+          val toLength = Ints.fromByteArray(bytes.slice(partialSumSize + offsetToLength, partialSumSize + offsetToLength + 4))
+          val txSize = transactionSize(sigLength, fromLength, toLength)
+          val txBytes = bytes.slice(partialSumSize, partialSumSize + txSize)
+          parse(txBytes) match {
+            case Success(tx) => (tx +: prevTxs, partialSumSize + txSize)
+            case Failure(e) => throw e
+          }
+    }._1
+    reverseTxs.reverse
   }
 }
 
