@@ -10,14 +10,17 @@ import scorex.core.transaction.account.PublicKeyNoncedBox
 import scorex.core.transaction.box.BoxUnlocker
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.proof.{Proof, Signature25519}
+import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
 import scorex.crypto.encode.{Base58, Base64}
 import scorex.crypto.signatures.Curve25519
 import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction._
-import scorex.nothingAtStakeCoin.transaction.PublicKey25519NoncedBox
+import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
 
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success, Try}
 
-case class NothingAtStakeCoinInput(proposition: PublicKey25519Proposition, nonce: Nonce)
+case class NothingAtStakeCoinInput(proposition: PublicKey25519Proposition, nonce: Nonce) {
+  lazy val id: Array[Byte] = PublicKeyNoncedBox.idFromBox(proposition, nonce)
+}
 
 case class NothingAtStakeCoinOutput(proposition: PublicKey25519Proposition, value: Value)
 
@@ -28,16 +31,16 @@ case class NothingAtStakeCoinTransaction(
                                           override val fee: Long,
                                           override val timestamp: Long
                                         )
-  extends BoxTransaction[PublicKey25519Proposition, PublicKeyNoncedBox[PublicKey25519Proposition]] {
+  extends BoxTransaction[PublicKey25519Proposition, PublicKey25519NoncedBox] {
 
   override lazy val unlockers: Traversable[BoxUnlocker[PublicKey25519Proposition]] = from.zip(signatures).map {
     case (input, signature) => new BoxUnlocker[PublicKey25519Proposition] {
-      override val closedBoxId: Array[Byte] = PublicKeyNoncedBox.idFromBox(input.proposition, input.nonce)
-      override val boxKey: Proof[PublicKey25519Proposition] = signature
+      override val closedBoxId = input.id
+      override val boxKey = signature
     }
   }
 
-  override val newBoxes: Traversable[PublicKeyNoncedBox[PublicKey25519Proposition]] = to.zipWithIndex.map {
+  override val newBoxes: Traversable[PublicKey25519NoncedBox] = to.zipWithIndex.map {
     case (output, index) =>
       val nonce = generateNonce(output, from, timestamp, index)
       PublicKey25519NoncedBox(output.proposition, nonce, output.value)
@@ -99,14 +102,14 @@ object NothingAtStakeCoinNodeNodeViewModifierCompanion extends NodeViewModifierC
   private def transactionSize(sigLength: Int, fromLength: Int, toLength: Int): Int = {
     val sigSize = Curve25519.SignatureLength
     val elementLength = 8 + Curve25519.KeyLength
-    28 + sigLength*sigSize + fromLength*elementLength + toLength*elementLength
+    28 + sigLength * sigSize + fromLength * elementLength + toLength * elementLength
   }
 
   def parseTransactionsArray(cntTxs: Int, bytes: Array[Byte]): Try[Seq[NothingAtStakeCoinTransaction]] = Try {
     val offsetSigLength: Int = 16
     val offsetFromLength: Int = 20
     val offsetToLength: Int = 24
-    val reverseTxs : Seq[NothingAtStakeCoinTransaction] =
+    val reverseTxs: Seq[NothingAtStakeCoinTransaction] =
       (0 until cntTxs).foldLeft[(Seq[NothingAtStakeCoinTransaction], Int)](Tuple2(Seq(), 0)) {
         (rec, i) => (Seq(), 0)
           val (prevTxs, partialSumSize) = rec
@@ -119,7 +122,7 @@ object NothingAtStakeCoinNodeNodeViewModifierCompanion extends NodeViewModifierC
             case Success(tx) => (tx +: prevTxs, partialSumSize + txSize)
             case Failure(e) => throw e
           }
-    }._1
+      }._1
     reverseTxs.reverse
   }
 }
@@ -127,6 +130,30 @@ object NothingAtStakeCoinNodeNodeViewModifierCompanion extends NodeViewModifierC
 object NothingAtStakeCoinTransaction {
   type Value = Long
   type Nonce = Long
+
+  def apply(from: IndexedSeq[(PrivateKey25519, Nonce)],
+            to: IndexedSeq[(PublicKey25519Proposition, Value)],
+            fee: Long,
+            timestamp: Long): NothingAtStakeCoinTransaction = {
+
+    val withoutSignature: NothingAtStakeCoinTransaction = new NothingAtStakeCoinTransaction(
+      from = from.map { case (k: PrivateKey25519, n: Nonce) => NothingAtStakeCoinInput(k.publicImage, n) },
+      to = to.map { case (p: PublicKey25519Proposition, n: Nonce) => NothingAtStakeCoinOutput(p, n) },
+      signatures = from.map { case (k: PrivateKey25519, _) => PrivateKey25519Companion.sign(k, Array.emptyByteArray) },
+      fee = fee,
+      timestamp = timestamp
+    )
+
+    val signatures = from.map { case (k: PrivateKey25519, _) => PrivateKey25519Companion.sign(k, withoutSignature.messageToSign) }
+
+    NothingAtStakeCoinTransaction(
+      withoutSignature.from,
+      withoutSignature.to,
+      signatures,
+      fee,
+      timestamp
+    )
+  }
 
   def generateNonce(output: NothingAtStakeCoinOutput, inputs: Seq[NothingAtStakeCoinInput], timestamp: Long, index: Int): Long =
     Longs.fromByteArray(FastCryptographicHash(

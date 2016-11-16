@@ -32,6 +32,7 @@ class NothingAtStakeCoin(settingsFilename: String) extends Application {
 
   override val localInterface: ActorRef = actorSystem.actorOf(Props(classOf[NothingAtStakeCoinLocalInterface], nodeViewHolderRef))
 
+
   override val apiTypes: Seq[Type] = Seq(typeOf[UtilsApiRoute], typeOf[NodeViewApiRoute[P, TX]])
 
   override protected lazy val additionalMessageSpecs: Seq[MessageSpec[_]] = Seq(NothingAtStakeCoinSyncInfoSpec)
