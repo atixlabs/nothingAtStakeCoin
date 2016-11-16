@@ -15,4 +15,13 @@ class NothingAtStakeCoinNodeNodeViewModifierCompanionSpec extends PropSpec
       val asObject = NothingAtStakeCoinNodeNodeViewModifierCompanion.parse(asBytes).get
     }
   }
+
+  property("TransactionArray serialization") {
+    forAll(nothingAtStakeCoinTransactionArrayGenerator) { txArray: Array[NothingAtStakeCoinTransaction] =>
+      val asBytes = txArray.foldRight[Array[Byte]](Array[Byte]()) {
+        (tx, prevTxs) => NothingAtStakeCoinNodeNodeViewModifierCompanion.bytes(tx) ++ prevTxs
+      }
+      val asObject = NothingAtStakeCoinNodeNodeViewModifierCompanion.parseTransactionsArray(txArray.length, asBytes).get
+    }
+  }
 }

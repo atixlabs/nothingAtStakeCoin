@@ -6,23 +6,31 @@ import scorex.core.NodeViewModifierCompanion
 import scorex.core.block.Block
 import scorex.core.block.Block.{BlockId, Timestamp, Version}
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
-import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
+import scorex.nothingAtStakeCoin.state.{NothingAtStakeCoinNodeNodeViewModifierCompanion, NothingAtStakeCoinTransaction}
 import shapeless.{::, HNil}
+import com.google.common.primitives.{Ints, Longs}
 
-case class NothingAtStakeCoinBlock() extends Block[PublicKey25519Proposition, NothingAtStakeCoinTransaction] {
+import scala.util.{Try, Success, Failure}
+
+case class NothingAtStakeCoinBlock( override val parentId:ModifierId,
+                                    override val timestamp: Timestamp,
+                                    txs:Seq[NothingAtStakeCoinTransaction]
+                                  )
+  extends Block[PublicKey25519Proposition, NothingAtStakeCoinTransaction] {
+
   override type BlockFields = BlockId :: Timestamp :: Version :: HNil
 
   override def version: Version = ???
 
-  override def parentId: ModifierId = ???
+//  override def parentId: ModifierId = ???
 
   override def json: Json = ???
 
-  override def timestamp: Timestamp = ???
+//  override def timestamp: Timestamp = ???
 
   override def blockFields: BlockFields = ???
 
-  override def transactions: Option[Seq[NothingAtStakeCoinTransaction]] = ???
+  override def transactions: Option[Seq[NothingAtStakeCoinTransaction]] = Some(txs)
 
   override type M = this.type
   override val modifierTypeId: ModifierTypeId = ???
@@ -30,4 +38,39 @@ case class NothingAtStakeCoinBlock() extends Block[PublicKey25519Proposition, No
   override def id: ModifierId = ???
 
   override def companion: NodeViewModifierCompanion[NothingAtStakeCoinBlock.this.type] = ???
+
+  def coinAge : Long = ???
+}
+
+object NothingAtStakeCoinBlock{
+  type CoinAgeLength = Long
+}
+
+object NothingAtStakeCoinBlockCompanion extends NodeViewModifierCompanion[NothingAtStakeCoinBlock] {
+  override def bytes(block: NothingAtStakeCoinBlock): Array[Byte] = {
+    block.parentId ++
+    Longs.toByteArray(block.timestamp) ++
+    Array(block.version) ++
+    Longs.toByteArray(block.coinAge) ++ {
+      val cntTxs = Ints.toByteArray(block.txs.size)
+      block.txs.foldLeft(cntTxs) { case (bytes, tx) => bytes ++ NothingAtStakeCoinNodeNodeViewModifierCompanion.bytes(tx) }
+    }
+  }
+
+  override def parse(bytes: Array[ModifierTypeId]): Try[NothingAtStakeCoinBlock] = Try {
+    val parentId = bytes.slice(0, Block.BlockIdLength)
+    val timestamp = Longs.fromByteArray(bytes.slice(Block.BlockIdLength, Block.BlockIdLength + 8))
+    val version = bytes.slice(Block.BlockIdLength + 8, Block.BlockIdLength + 9).head
+    val coinAge = bytes.slice(Block.BlockIdLength + 9, Block.BlockIdLength + 17)
+    val s0 = Block.BlockIdLength + 17
+    //TODO: Add generator and signature?
+    val cntTxs = Ints.fromByteArray(bytes.slice(s0, s0 + 4))
+    val s1 = s0 + 4
+    val txsBytes = bytes.slice(s1, s1 + bytes.length-1)
+    val txs = NothingAtStakeCoinNodeNodeViewModifierCompanion.parseTransactionsArray(cntTxs, txsBytes)
+    txs match{
+      case Success(t) => NothingAtStakeCoinBlock(parentId, timestamp, t)
+      case Failure(e) => throw e
+    }
+  }
 }

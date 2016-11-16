@@ -44,4 +44,7 @@ trait ObjectGenerators {
     fee = fee,
     timestamp = timestamp
   )
+
+  lazy val nothingAtStakeCoinTransactionArrayGenerator: Gen[Array[NothingAtStakeCoinTransaction]] =
+    Gen.listOf(nothingAtSakeCoinTransactionGenerator).map(_.toArray)
 }
