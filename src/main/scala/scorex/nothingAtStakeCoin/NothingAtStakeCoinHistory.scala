@@ -23,32 +23,30 @@ case class NothingAtStakeCoinHistory( blocks:Map[BlockId, NothingAtStakeCoinBloc
                   NothingAtStakeCoinBlock,
                   NothingAtStakeCoinSyncInfo,
                   NothingAtStakeCoinHistory] {
+
   override def isEmpty: Boolean = blocks.isEmpty
 
   override def blockById(blockId: BlockId): Option[NothingAtStakeCoinBlock] = blocks.get(blockId)
 
   override def append(block: NothingAtStakeCoinBlock): Try[(NothingAtStakeCoinHistory, Option[RollbackTo[NothingAtStakeCoinBlock]])] = {
     /* Verifiy the block:
-     *    txs in UTXO
-     *    coinAge valid
+     *    txs in UTXO: In charge of nodeViewHolder
      *    timestamp valid?
-     *    parentId valid (Already verified below)
      *    block generator matches signature?
+     *      block.generator.verify(???, block.generationSignature)
+     *
      */
-
-    /* Add block */
-    blocksInfo.get(block.parentId) match{
-      case Some(info:BlockInfo) =>
-        {
-          val newBlocks = blocks + (block.id->block)
-          val newBlockTotalCoinAge = info.totalCoinAge + block.coinAge
-          val newBlocksInfo = blocksInfo -  block.parentId +
-                                            (block.parentId->BlockInfo(info.sons + 1, info.totalCoinAge)) +
-                                            (block.id->BlockInfo(0, newBlockTotalCoinAge))
-          val newBestN = obtainBestN(block.id, newBlockTotalCoinAge)
-          Success(NothingAtStakeCoinHistory(newBlocks, newBlocksInfo, newBestN), None)
-        }
-      case None => Failure(new Exception("Parent block not found"))
+    if( blocks.get(block.parentId).isDefined &&
+        block.coinAge == getCoinAge(block.id)){
+      /* Add block */
+      val info = blocksInfo.get(block.parentId).get
+      val newBlocks = blocks + (block.id->block)
+      val newBlockTotalCoinAge = info.totalCoinAge + block.coinAge
+      val newBlocksInfo = blocksInfo -  block.parentId +
+                                        (block.parentId->BlockInfo(info.sons + 1, info.totalCoinAge)) +
+                                        (block.id->BlockInfo(0, newBlockTotalCoinAge))
+      val newBestN = obtainBestN(block.id, newBlockTotalCoinAge)
+      Success(NothingAtStakeCoinHistory(newBlocks, newBlocksInfo, newBestN), None)
     }
   }
 
@@ -66,14 +64,16 @@ case class NothingAtStakeCoinHistory( blocks:Map[BlockId, NothingAtStakeCoinBloc
 
   override def companion: NodeViewComponentCompanion = ???
 
-  /* Auxiliary functions */
-  def obtainTotalCoinAge(block: BlockId): Option[NothingAtStakeCoinBlock.CoinAgeLength] = blocksInfo.get(block).map(_.totalCoinAge)
+  def getCoinAge(block: BlockId): Option[NothingAtStakeCoinBlock.CoinAgeLength] = ???
 
+  /* Auxiliary functions */
   def obtainBestN(newBlock: BlockId, newBlockTotalCoinAge: NothingAtStakeCoinBlock.CoinAgeLength): List[BlockId] = {
     val prevBestN: List[BlockId] = bestNBlocks
     if(prevBestN.size<NothingAtStakeCoinHistory.N){
       newBlock +: prevBestN
     }else{
+      val obtainTotalCoinAge : (BlockId=>Option[NothingAtStakeCoinBlock.CoinAgeLength]) =
+        block => blocksInfo.get(block).map(_.totalCoinAge)
       val worstBlock = prevBestN.minBy[NothingAtStakeCoinBlock.CoinAgeLength](block => obtainTotalCoinAge(block).get)
       if(obtainTotalCoinAge(worstBlock).get < newBlockTotalCoinAge){
         newBlock +: (prevBestN diff List(worstBlock))
