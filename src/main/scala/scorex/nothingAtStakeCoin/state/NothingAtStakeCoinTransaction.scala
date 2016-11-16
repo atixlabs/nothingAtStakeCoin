@@ -21,12 +21,14 @@ case class NothingAtStakeCoinInput(proposition: PublicKey25519Proposition, nonce
 
 case class NothingAtStakeCoinOutput(proposition: PublicKey25519Proposition, value: Value)
 
-case class NothingAtStakeCoinTransaction(from: IndexedSeq[NothingAtStakeCoinInput],
-                                         to: IndexedSeq[NothingAtStakeCoinOutput],
-                                         signatures: IndexedSeq[Signature25519],
-                                         override val fee: Long,
-                                         override val timestamp: Long
-                                        ) extends BoxTransaction[PublicKey25519Proposition, PublicKeyNoncedBox[PublicKey25519Proposition]] {
+case class NothingAtStakeCoinTransaction(
+                                          from: IndexedSeq[NothingAtStakeCoinInput],
+                                          to: IndexedSeq[NothingAtStakeCoinOutput],
+                                          signatures: IndexedSeq[Signature25519],
+                                          override val fee: Long,
+                                          override val timestamp: Long
+                                        )
+  extends BoxTransaction[PublicKey25519Proposition, PublicKeyNoncedBox[PublicKey25519Proposition]] {
 
   override lazy val unlockers: Traversable[BoxUnlocker[PublicKey25519Proposition]] = from.zip(signatures).map {
     case (input, signature) => new BoxUnlocker[PublicKey25519Proposition] {
@@ -52,6 +54,8 @@ case class NothingAtStakeCoinTransaction(from: IndexedSeq[NothingAtStakeCoinInpu
     "fee" -> fee.asJson,
     "timestamp" -> timestamp.asJson
   ).asJson
+
+  override def equals(o: scala.Any): Boolean = super.equals(o)
 }
 
 object NothingAtStakeCoinNodeNodeViewModifierCompanion extends NodeViewModifierCompanion[NothingAtStakeCoinTransaction] {
