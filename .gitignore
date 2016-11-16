@@ -20,7 +20,7 @@ Dockerfile
 # db files
 
 *.data
-
+*.dat
 
 # for temporary experiments
 sheet.scala

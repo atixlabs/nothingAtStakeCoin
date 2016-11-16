@@ -1,15 +1,16 @@
 package scorex.nothingAtStakeCoin
 
-import scorex.core.{NodeViewHolder, NodeViewModifier, NodeViewModifierCompanion}
 import scorex.core.NodeViewModifier.ModifierTypeId
+import scorex.core.settings.Settings
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
+import scorex.core.{NodeViewHolder, NodeViewModifier, NodeViewModifierCompanion}
 import scorex.mid.wallet.DefaultWallet25519
 import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinSyncInfo
 import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinHistory
 import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
 import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinMemoryPool}
 
-class NothingAtStakeCoinNodeViewHolder extends NodeViewHolder[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock] {
+class NothingAtStakeCoinNodeViewHolder(settings: Settings) extends NodeViewHolder[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock] {
   override type SI = NothingAtStakeCoinSyncInfo
   override type HIS = NothingAtStakeCoinHistory
   override type MS = NothingAtStakeCoinMinimalState
