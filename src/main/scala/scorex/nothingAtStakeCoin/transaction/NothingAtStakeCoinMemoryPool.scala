@@ -34,3 +34,7 @@ case class NothingAtStakeCoinMemoryPool(unconfirmed: Map[NodeViewModifier.Modifi
 
   override def companion: NodeViewComponentCompanion = ???
 }
+
+object NothingAtStakeCoinMemoryPool {
+  lazy val emptyPool: NothingAtStakeCoinMemoryPool = NothingAtStakeCoinMemoryPool(Map())
+}

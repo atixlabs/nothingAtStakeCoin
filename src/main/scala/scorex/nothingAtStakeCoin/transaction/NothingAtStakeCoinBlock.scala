@@ -2,13 +2,15 @@ package scorex.nothingAtStakeCoin.transaction
 
 import io.circe.Json
 import scorex.core.NodeViewModifier.{ModifierId, ModifierTypeId}
-import scorex.core.NodeViewModifierCompanion
+import scorex.core.{NodeViewModifier, NodeViewModifierCompanion}
 import scorex.core.block.Block
 import scorex.core.block.Block.{BlockId, Timestamp, Version}
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.nothingAtStakeCoin.state.{NothingAtStakeCoinNodeNodeViewModifierCompanion, NothingAtStakeCoinTransaction}
 import shapeless.{::, HNil}
 import com.google.common.primitives.{Ints, Longs}
+import scorex.core.crypto.hash.FastCryptographicHash
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.GenerationSignature
 import scorex.crypto.encode.Base58
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.{CoinAgeLength, GenerationSignature}
 import io.circe.syntax._
@@ -28,7 +30,21 @@ case class NothingAtStakeCoinBlock( override val parentId:ModifierId,
                               Version :: NothingAtStakeCoinBlock.CoinAgeLength ::
                               Seq[NothingAtStakeCoinTransaction] ::HNil
 
-  override def version: Version = ???
+  override type M = NothingAtStakeCoinBlock
+
+  override val modifierTypeId: ModifierTypeId = NothingAtStakeCoinBlock.ModifierTypeId
+
+  override def version: Version = NothingAtStakeCoinBlock.Version
+
+  override def blockFields: BlockFields = id :: timestamp :: version :: HNil
+
+  override def transactions: Option[Seq[NothingAtStakeCoinTransaction]] = Some(txs)
+
+  override def id: ModifierId = FastCryptographicHash(companion.bytes(this))
+
+  override def companion: NodeViewModifierCompanion[NothingAtStakeCoinBlock] = NothingAtStakeCoinBlockCompanion
+
+  def coinAge: Long = 100L
 
   override def json: Json = Map(
     "id" -> Base58.encode(id).asJson,
@@ -39,25 +55,22 @@ case class NothingAtStakeCoinBlock( override val parentId:ModifierId,
     "coinAge" -> coinAge.asJson,
     "txs" -> txs.map(_.json).asJson
   ).asJson
-
-  override def blockFields: BlockFields = parentId :: timestamp :: generationSignature :: generator :: version :: coinAge :: txs :: HNil
-
-  override def transactions: Option[Seq[NothingAtStakeCoinTransaction]] = Some(txs)
-
-  override type M = this.type
-  override val modifierTypeId: ModifierTypeId = ???
-
-  override def id: ModifierId = ???
-
-  override def companion: NodeViewModifierCompanion[NothingAtStakeCoinBlock.this.type] = ???
 }
 
-object NothingAtStakeCoinBlock{
+object NothingAtStakeCoinBlock {
+
   type CoinAgeLength = Long
 
   type GenerationSignature = Array[Byte]
 
   val SignatureLength = 64
+
+  val ModifierTypeId = 1: Byte
+
+  val Version = 1: Byte
+
+  lazy val GenesisBlockId: ModifierId = Array.fill(NodeViewModifier.ModifierIdSize)(1: Byte)
+
 }
 
 object NothingAtStakeCoinBlockCompanion extends NodeViewModifierCompanion[NothingAtStakeCoinBlock] {

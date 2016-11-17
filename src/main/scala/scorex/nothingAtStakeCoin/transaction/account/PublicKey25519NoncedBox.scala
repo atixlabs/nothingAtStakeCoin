@@ -1,4 +1,4 @@
-package scorex.nothingAtStakeCoin.transaction
+package scorex.nothingAtStakeCoin.transaction.account
 
 import com.google.common.primitives.Longs
 import scorex.core.serialization.BytesParseable
