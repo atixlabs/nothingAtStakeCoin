@@ -6,6 +6,9 @@ import scorex.core.transaction.proof.Signature25519
 import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
 import scorex.crypto.signatures.Curve25519
 import scorex.nothingAtStakeCoin.state.{NothingAtStakeCoinInput, NothingAtStakeCoinOutput, NothingAtStakeCoinTransaction}
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock
+import scorex.core.block.Block.Timestamp
+import scorex.core.NodeViewModifier.{ModifierId, ModifierIdSize}
 
 trait ObjectGenerators {
 
@@ -26,10 +29,10 @@ trait ObjectGenerators {
     Gen.listOf(keyGenerator.map(keyPair => NothingAtStakeCoinOutput(keyPair._2, Arbitrary.arbitrary[Long].sample.get)))
       .map(_.toIndexedSeq)
 
+  lazy val signatureGenerator : Gen[Signature25519] = genBytesList(Signature25519.SignatureSize).map(b => Signature25519(b))
+
   lazy val signaturesGenerator: Gen[IndexedSeq[Signature25519]] =
-    Gen.listOf(genBytesList(Signature25519.SignatureSize)
-      .map(b => Signature25519(b)))
-      .map(_.toIndexedSeq)
+    Gen.listOf(signatureGenerator).map(_.toIndexedSeq)
 
   lazy val nothingAtSakeCoinTransactionGenerator: Gen[NothingAtStakeCoinTransaction] = for {
     outputs <- outputsGenerator
@@ -45,6 +48,20 @@ trait ObjectGenerators {
     timestamp = timestamp
   )
 
-  lazy val nothingAtStakeCoinTransactionArrayGenerator: Gen[Array[NothingAtStakeCoinTransaction]] =
-    Gen.listOf(nothingAtSakeCoinTransactionGenerator).map(_.toArray)
+  lazy val nothingAtStakeCoinTransactionSeqGenerator: Gen[Seq[NothingAtStakeCoinTransaction]] =
+    Gen.listOf(nothingAtSakeCoinTransactionGenerator).map(_.toSeq)
+
+  lazy val nothingAtSakeCoinBlockGenerator: Gen[NothingAtStakeCoinBlock] = for {
+    parentId: ModifierId <- genBytesList(ModifierIdSize)
+    timestamp: Timestamp <- Arbitrary.arbitrary[Long]
+    generationSignature <- signatureGenerator
+    generator <- keyGenerator.map(_._2)
+    txs <- nothingAtStakeCoinTransactionSeqGenerator
+  } yield new NothingAtStakeCoinBlock(
+    parentId = parentId,
+    timestamp = timestamp,
+    generationSignature = generationSignature.signature,
+    generator = generator,
+    txs = txs
+  )
 }
