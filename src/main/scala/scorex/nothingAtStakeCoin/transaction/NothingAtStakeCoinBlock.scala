@@ -36,15 +36,13 @@ case class NothingAtStakeCoinBlock( override val parentId:ModifierId,
 
   override def version: Version = NothingAtStakeCoinBlock.Version
 
-  override def blockFields: BlockFields = id :: timestamp :: version :: HNil
+  override def blockFields: BlockFields = parentId :: timestamp :: generationSignature :: generator :: version :: coinAge :: txs :: HNil
 
   override def transactions: Option[Seq[NothingAtStakeCoinTransaction]] = Some(txs)
 
   override def id: ModifierId = FastCryptographicHash(companion.bytes(this))
 
   override def companion: NodeViewModifierCompanion[NothingAtStakeCoinBlock] = NothingAtStakeCoinBlockCompanion
-
-  def coinAge: Long = 100L
 
   override def json: Json = Map(
     "id" -> Base58.encode(id).asJson,

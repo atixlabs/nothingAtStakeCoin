@@ -36,6 +36,7 @@ class NothingAtStakeCoinNodeViewHolder(settings: Settings) extends NodeViewHolde
       timestamp = 0,
       generationSignature = Array.fill(NothingAtStakeCoinBlock.SignatureLength)(1: Byte),
       generator = wallet.publicKeys.head,
+      Long.MaxValue,
       txs = Seq(genesisTx)
     )
 

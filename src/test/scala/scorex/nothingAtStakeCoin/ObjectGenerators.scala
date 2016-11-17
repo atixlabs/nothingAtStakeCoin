@@ -9,6 +9,7 @@ import scorex.nothingAtStakeCoin.state.{NothingAtStakeCoinInput, NothingAtStakeC
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock
 import scorex.core.block.Block.Timestamp
 import scorex.core.NodeViewModifier.{ModifierId, ModifierIdSize}
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.CoinAgeLength
 
 trait ObjectGenerators {
 
@@ -54,14 +55,16 @@ trait ObjectGenerators {
   lazy val nothingAtSakeCoinBlockGenerator: Gen[NothingAtStakeCoinBlock] = for {
     parentId: ModifierId <- genBytesList(ModifierIdSize)
     timestamp: Timestamp <- Arbitrary.arbitrary[Long]
+    coinAge: CoinAgeLength <- Arbitrary.arbitrary[Long]
     generationSignature <- signatureGenerator
     generator <- keyGenerator.map(_._2)
     txs <- nothingAtStakeCoinTransactionSeqGenerator
   } yield new NothingAtStakeCoinBlock(
     parentId = parentId,
+    generationSignature = generationSignature.bytes,
     timestamp = timestamp,
-    generationSignature = generationSignature.signature,
     generator = generator,
+    coinAge = coinAge,
     txs = txs
   )
 }
