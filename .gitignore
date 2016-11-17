@@ -24,3 +24,6 @@ Dockerfile
 
 # for temporary experiments
 sheet.scala
+
+# git
+*.orig
