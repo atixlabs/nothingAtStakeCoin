@@ -3,7 +3,9 @@ package scorex.nothingAtStakeCoin
 import scorex.core.NodeViewModifier.ModifierTypeId
 import scorex.core.settings.Settings
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
+import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
 import scorex.core.{NodeViewHolder, NodeViewModifier, NodeViewModifierCompanion}
+import scorex.crypto.signatures.Curve25519
 import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinSyncInfo
 import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinHistory
 import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
@@ -31,21 +33,32 @@ class NothingAtStakeCoinNodeViewHolder(settings: Settings) extends NodeViewHolde
       0L,
       0L)
 
-    val genesisBlock = NothingAtStakeCoinBlock(
+    val pubKeyGenesisBlock = wallet.publicKeys.head
+
+    val unsignedGenesisBlock = NothingAtStakeCoinBlock(
       NothingAtStakeCoinBlock.GenesisBlockId,
       timestamp = 0,
       generationSignature = Array.fill(NothingAtStakeCoinBlock.SignatureLength)(1: Byte),
-      generator = wallet.publicKeys.head,
+      generator = pubKeyGenesisBlock,
       Long.MaxValue,
       txs = Seq(genesisTx)
     )
 
+    val genesisBlockSignature = PrivateKey25519Companion.sign(wallet.secretByPublicImage(pubKeyGenesisBlock).get,
+                                                              unsignedGenesisBlock.companion.messageToSign(unsignedGenesisBlock))
+
+    val genesisBlock = unsignedGenesisBlock.copy(generationSignature = genesisBlockSignature.signature, generator = pubKeyGenesisBlock)
+
     val minimalState = NothingAtStakeCoinMinimalState.genesisState().applyModifier(genesisBlock).get
 
+    val history = (new NothingAtStakeCoinHistory).append(genesisBlock)
 
-    (new NothingAtStakeCoinHistory, minimalState, wallet, NothingAtStakeCoinMemoryPool.emptyPool)
+    /* DEBUG */
+    val verifies2: Boolean = genesisBlock.generator.verify(genesisBlock.companion.messageToSign(genesisBlock), genesisBlockSignature.signature)
+    val verifies3: Boolean = genesisBlock.generator.verify(genesisBlock.companion.messageToSign(unsignedGenesisBlock), genesisBlockSignature.signature)
+    log.debug(s"Prueba de verify2 ${verifies2}, ${verifies3}")
 
-
+    (history.get._1, minimalState, wallet, NothingAtStakeCoinMemoryPool.emptyPool)
   }
 
   override def restoreState(): Option[(NothingAtStakeCoinHistory, NothingAtStakeCoinMinimalState, NothingAtStakeCoinWallet, NothingAtStakeCoinMemoryPool)] = None

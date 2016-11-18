@@ -42,7 +42,7 @@ case class NothingAtStakeCoinBlock( override val parentId:ModifierId,
 
   override def id: ModifierId = FastCryptographicHash(companion.bytes(this))
 
-  override def companion: NodeViewModifierCompanion[NothingAtStakeCoinBlock] = NothingAtStakeCoinBlockCompanion
+  override def companion = NothingAtStakeCoinBlockCompanion
 
   override def json: Json = Map(
     "id" -> Base58.encode(id).asJson,
@@ -72,18 +72,22 @@ object NothingAtStakeCoinBlock {
 }
 
 object NothingAtStakeCoinBlockCompanion extends NodeViewModifierCompanion[NothingAtStakeCoinBlock] {
-  def messageToSign(block: NothingAtStakeCoinBlock): Array[Byte] = bytes(block)
-
-  override def bytes(block: NothingAtStakeCoinBlock): Array[Byte] = {
+  def messageToSign(block: NothingAtStakeCoinBlock): Array[Byte] = {
     block.parentId ++
     Longs.toByteArray(block.timestamp) ++
-    block.generationSignature ++
-    block.generator.pubKeyBytes ++
     Array(block.version) ++
-    Longs.toByteArray(block.coinAge) ++ {
+    Longs.toByteArray(block.coinAge) ++
+    block.generator.pubKeyBytes ++{
       val cntTxs = Ints.toByteArray(block.txs.size)
       block.txs.foldLeft(cntTxs) { case (bytes, tx) => bytes ++ NothingAtStakeCoinNodeNodeViewModifierCompanion.bytes(tx) }
     }
+  }
+
+  override def bytes(block: NothingAtStakeCoinBlock): Array[Byte] = {
+    val bytesWithoutSignature = messageToSign(block)
+    bytesWithoutSignature.slice(0, Block.BlockIdLength + 17) ++
+      block.generationSignature ++
+      bytesWithoutSignature.slice(Block.BlockIdLength + 17, bytesWithoutSignature.length)
   }
 
   override def parse(bytes: Array[ModifierTypeId]): Try[NothingAtStakeCoinBlock] = Try {

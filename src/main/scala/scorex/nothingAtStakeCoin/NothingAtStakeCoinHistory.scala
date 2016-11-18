@@ -9,8 +9,9 @@ import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinSyncInfo
 import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinHistory.sonsSize
 import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
 import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion}
-
 import scala.util.{Failure, Success, Try}
+
+import scorex.core.utils.ScorexLogging
 
 case class BlockInfo(sons: sonsSize, totalCoinAge: NothingAtStakeCoinBlock.CoinAgeLength)
 
@@ -22,13 +23,14 @@ case class NothingAtStakeCoinHistory(blocks: Map[BlockId, NothingAtStakeCoinBloc
     NothingAtStakeCoinTransaction,
     NothingAtStakeCoinBlock,
     NothingAtStakeCoinSyncInfo,
-    NothingAtStakeCoinHistory] {
+    NothingAtStakeCoinHistory] with ScorexLogging {
 
   override def isEmpty: Boolean = blocks.isEmpty
 
   override def blockById(blockId: BlockId): Option[NothingAtStakeCoinBlock] = blocks.get(blockId)
 
   override def append(block: NothingAtStakeCoinBlock): Try[(NothingAtStakeCoinHistory, Option[RollbackTo[NothingAtStakeCoinBlock]])] = {
+    log.debug("Appending block to history")
     /* Verify the block:
      *    txs in UTXO: In charge of nodeViewHolder (MemPool)
      *    check block coin age: In charge of nodeViewHolder (MemPool)
@@ -36,13 +38,19 @@ case class NothingAtStakeCoinHistory(blocks: Map[BlockId, NothingAtStakeCoinBloc
      *    check coinbase and coinstake transactions
      *    check only 2nd transaction can be coinstake
      */
-    if (blocks.get(block.parentId).isDefined && //Check if parentId is valid
-      block.txs.toSet.size == block.txs.length && //Check for duplicate txs
-      block.generator.verify(//Check block generator matches signature
-        NothingAtStakeCoinBlockCompanion.messageToSign(block),
-        block.generationSignature) &&
-      checkStakeKernelHash(block) //Check if block reached target
+    val parentIdValid: Boolean = isEmpty || blocks.get(block.parentId).isDefined //Check if parentId is valid
+    val uniqueTxs: Boolean = block.txs.toSet.size == block.txs.length //Check for duplicate txs
+    val blockSignatureValid: Boolean =  block.generator.verify( //Check block generator matches signature
+                                        block.companion.messageToSign(block),
+                                        block.generationSignature)
+    val blockReachedTarget: Boolean = checkStakeKernelHash(block) //Check if block reached target
+
+    if (  parentIdValid &&
+          uniqueTxs &&
+          blockSignatureValid &&
+          blockReachedTarget
     ) {
+      log.debug("Append conditions met")
       /* Add block */
       val info = blocksInfo(block.parentId) //.get(block.parentId).get
       val newBlocks = blocks + (block.id -> block)
@@ -90,7 +98,7 @@ case class NothingAtStakeCoinHistory(blocks: Map[BlockId, NothingAtStakeCoinBloc
 
   override type NVCT = this.type
 
-  override def companion: NodeViewComponentCompanion = ???
+  override def companion: NodeViewComponentCompanion = null
 
   /* Auxiliary functions */
   private def changeSons(blockId: BlockId, amountToAdd: sonsSize): Try[(Map[BlockId, BlockInfo], sonsSize)] = {
@@ -118,7 +126,7 @@ case class NothingAtStakeCoinHistory(blocks: Map[BlockId, NothingAtStakeCoinBloc
     }
   }
 
-  private def checkStakeKernelHash(block: NothingAtStakeCoinBlock): Boolean = ???
+  private def checkStakeKernelHash(block: NothingAtStakeCoinBlock): Boolean = true
 }
 
 object NothingAtStakeCoinHistory {

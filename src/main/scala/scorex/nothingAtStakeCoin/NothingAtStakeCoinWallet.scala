@@ -69,7 +69,7 @@ case class NothingAtStakeCoinWallet(settings: Settings)
   dbSecrets.getEntries.map(e => PrivateKey25519(e.getValue, e.getKey)).toSet
 
   override def secretByPublicImage(publicImage: PublicKey25519Proposition): Option[PrivateKey25519] =
-    Option(dbSecrets.get(publicImage))
+    Option(dbSecrets.get(publicImage.bytes))
       .map(privBytes => PrivateKey25519(privBytes, publicImage.pubKeyBytes))
 
   override type NVCT = NothingAtStakeCoinWallet
