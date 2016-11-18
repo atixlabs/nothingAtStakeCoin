@@ -55,7 +55,7 @@ case class NothingAtStakeCoinHistory(blocks: Map[BlockId, NothingAtStakeCoinBloc
       val parentInfo = blocksInfo.get(block.parentId)
       val newBlocks = blocks + (block.id -> block)
       val newBlockTotalCoinAge = parentInfo.getOrElse(BlockInfo(0, 0)).totalCoinAge + block.coinAge
-      val (newBestN, blockIdToRemove) = updateBestN(block.id, newBlockTotalCoinAge)
+      val (newBestN, blockIdToRemove) = updateBestN(block, newBlockTotalCoinAge)
       val newBlocksInfo = changeSons(block.parentId, 1).map(_._1).getOrElse(blocksInfo) +
                             (block.id -> BlockInfo(0, newBlockTotalCoinAge)) //Add new block to info
       NothingAtStakeCoinHistory(newBlocks, newBlocksInfo, newBestN) //Obtain newHistory with newInfo
@@ -113,16 +113,22 @@ case class NothingAtStakeCoinHistory(blocks: Map[BlockId, NothingAtStakeCoinBloc
     }
   }
 
-  private def updateBestN(newBlockId: BlockId, newBlockTotalCoinAge: NothingAtStakeCoinBlock.CoinAgeLength): (List[BlockId], Option[BlockId]) = {
+  private def updateBestN(newBlock: NothingAtStakeCoinBlock, newBlockTotalCoinAge: NothingAtStakeCoinBlock.CoinAgeLength): (List[BlockId], Option[BlockId]) = {
     val prevBestN: List[BlockId] = bestNChains
-    if (prevBestN.size < NothingAtStakeCoinHistory.N) {
-      (newBlockId +: prevBestN, None)
-    } else {
-      val obtainTotalCoinAge: (BlockId => Option[NothingAtStakeCoinBlock.CoinAgeLength]) =
-        block => blocksInfo.get(block).map(_.totalCoinAge)
-      val worstBlock = prevBestN.minBy[NothingAtStakeCoinBlock.CoinAgeLength](block => obtainTotalCoinAge(block).get)
-      val newBestN = if (obtainTotalCoinAge(worstBlock).get < newBlockTotalCoinAge) newBlockId +: (prevBestN diff List(worstBlock)) else prevBestN
-      (newBestN, Some(worstBlock))
+    val newBlockId = newBlock.id
+    val newParentId = blocks.get(newBlock.parentId).map(_.id)
+    if(newParentId.isDefined && bestNChains.contains(newParentId.get)){
+      (newBlockId +: prevBestN diff List(newParentId.get), None)
+    }else{
+      if (prevBestN.size < NothingAtStakeCoinHistory.N) {
+        (newBlockId +: prevBestN, None)
+      } else {
+        val obtainTotalCoinAge: (BlockId => NothingAtStakeCoinBlock.CoinAgeLength) =
+          block => blocksInfo.get(block).map(_.totalCoinAge).get
+        val worstBlock = prevBestN.minBy[NothingAtStakeCoinBlock.CoinAgeLength](block => obtainTotalCoinAge(block))
+        val newBestN = if (obtainTotalCoinAge(worstBlock) < newBlockTotalCoinAge) newBlockId +: (prevBestN diff List(worstBlock)) else prevBestN
+        (newBestN, Some(worstBlock))
+      }
     }
   }
 
