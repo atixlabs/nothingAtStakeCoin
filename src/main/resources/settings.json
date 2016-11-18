@@ -21,5 +21,8 @@
   "maxRollback": 100,
   "offlineGeneration": true,
   "blockGenerationDelay": 0,
-  "cors": false
+  "cors": false,
+  "nothingAtStakeCoin": {
+    "genesisTxs": 10
+  }
 }

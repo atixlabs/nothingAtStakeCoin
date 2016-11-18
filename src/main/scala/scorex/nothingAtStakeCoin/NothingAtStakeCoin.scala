@@ -9,13 +9,14 @@ import scorex.core.network.message.MessageSpec
 import scorex.core.settings.Settings
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.nothingAtStakeCoin.consensus.{NothingAtStakeCoinSyncInfo, NothingAtStakeCoinSyncInfoSpec}
+import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock
 
 import scala.reflect.runtime.universe._
 
 class NothingAtStakeCoin(settingsFilename: String) extends Application {
-  implicit lazy val settings = new Settings {
+  implicit lazy val settings = new NothingAtStakeCoinSettings {
     override val settingsJSON: Map[String, circe.Json] = settingsFromFile(settingsFilename)
   }
 
@@ -42,8 +43,8 @@ class NothingAtStakeCoin(settingsFilename: String) extends Application {
       networkController, nodeViewHolderRef, localInterface, NothingAtStakeCoinSyncInfoSpec))
 
   override val apiRoutes: Seq[ApiRoute] = Seq(
-  UtilsApiRoute(settings),
-  NodeViewApiRoute[P, TX](settings, nodeViewHolderRef))
+    UtilsApiRoute(settings),
+    NodeViewApiRoute[P, TX](settings, nodeViewHolderRef))
 }
 
 object NothingAtStakeCoin extends App {
