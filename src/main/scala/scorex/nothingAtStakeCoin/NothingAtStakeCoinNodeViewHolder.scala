@@ -53,11 +53,6 @@ class NothingAtStakeCoinNodeViewHolder(settings: Settings) extends NodeViewHolde
 
     val history = (new NothingAtStakeCoinHistory).append(genesisBlock)
 
-    /* DEBUG */
-    val verifies2: Boolean = genesisBlock.generator.verify(genesisBlock.companion.messageToSign(genesisBlock), genesisBlockSignature.signature)
-    val verifies3: Boolean = genesisBlock.generator.verify(genesisBlock.companion.messageToSign(unsignedGenesisBlock), genesisBlockSignature.signature)
-    log.debug(s"Prueba de verify2 ${verifies2}, ${verifies3}")
-
     (history.get._1, minimalState, wallet, NothingAtStakeCoinMemoryPool.emptyPool)
   }
 

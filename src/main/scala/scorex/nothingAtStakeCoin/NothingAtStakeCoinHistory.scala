@@ -52,14 +52,14 @@ case class NothingAtStakeCoinHistory(blocks: Map[BlockId, NothingAtStakeCoinBloc
     ) {
       log.debug("Append conditions met")
       /* Add block */
-      val info = blocksInfo(block.parentId) //.get(block.parentId).get
+      val parentInfo = blocksInfo.get(block.parentId)
       val newBlocks = blocks + (block.id -> block)
-      val newBlockTotalCoinAge = info.totalCoinAge + block.coinAge
+      val newBlockTotalCoinAge = parentInfo.getOrElse(BlockInfo(0, 0)).totalCoinAge + block.coinAge
       val (newBestN, blockIdToRemove) = updateBestN(block.id, newBlockTotalCoinAge)
-      changeSons(block.parentId, 1).map(_._1) //Change parents sons in blocksInfo
-        .map(_ + (block.id -> BlockInfo(0, newBlockTotalCoinAge))) //Add new block to info
-        .map(NothingAtStakeCoinHistory(newBlocks, _, newBestN)) //Obtain newHistory with newInfo
-        .flatMap(_.remove(blockIdToRemove)) //Remove blockToRemove
+      val newBlocksInfo = changeSons(block.parentId, 1).map(_._1).getOrElse(blocksInfo) +
+                            (block.id -> BlockInfo(0, newBlockTotalCoinAge)) //Add new block to info
+      NothingAtStakeCoinHistory(newBlocks, newBlocksInfo, newBestN) //Obtain newHistory with newInfo
+        .remove(blockIdToRemove) //Remove blockToRemove
     } else {
       Failure(new Exception("Block does not verify requirements"))
     }
