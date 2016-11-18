@@ -14,6 +14,7 @@ import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.GenerationS
 import scorex.crypto.encode.Base58
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.{CoinAgeLength, GenerationSignature}
 import io.circe.syntax._
+import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
 
 import scala.util.{Failure, Success, Try}
 
@@ -107,5 +108,10 @@ object NothingAtStakeCoinBlockCompanion extends NodeViewModifierCompanion[Nothin
       case Success(txs) => NothingAtStakeCoinBlock(parentId, timestamp, generationSignature, generator, coinAge, txs)
       case Failure(e) => throw e
     }
+  }
+
+  def signBlock(privKey: PrivateKey25519, unsignedBlock: NothingAtStakeCoinBlock) : NothingAtStakeCoinBlock = {
+    val blockSignature = PrivateKey25519Companion.sign(privKey, unsignedBlock.companion.messageToSign(unsignedBlock))
+    unsignedBlock.copy(generationSignature = blockSignature.signature)
   }
 }
