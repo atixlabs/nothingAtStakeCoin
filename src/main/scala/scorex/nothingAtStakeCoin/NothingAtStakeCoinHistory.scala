@@ -27,7 +27,7 @@ case class NothingAtStakeCoinHistory(blocks: Map[BlockId, NothingAtStakeCoinBloc
 
   override def isEmpty: Boolean = blocks.isEmpty
 
-  override def blockById(blockId: BlockId): Option[NothingAtStakeCoinBlock] = blocks.get(blockId)
+  override def blockById(blockId: BlockId): Option[NothingAtStakeCoinBlock] = blocks.find(_._1.sameElements(blockId)).map(_._2)
 
   override def append(block: NothingAtStakeCoinBlock): Try[(NothingAtStakeCoinHistory, Option[RollbackTo[NothingAtStakeCoinBlock]])] = {
     log.debug("Appending block to history")
