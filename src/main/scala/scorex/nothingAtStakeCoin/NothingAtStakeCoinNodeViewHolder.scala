@@ -1,19 +1,18 @@
 package scorex.nothingAtStakeCoin
 
 import scorex.core.NodeViewModifier.ModifierTypeId
-import scorex.core.settings.Settings
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.PrivateKey25519Companion
 import scorex.core.{NodeViewHolder, NodeViewModifier, NodeViewModifierCompanion}
 import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinSyncInfo
 import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinHistory
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
-import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion, NothingAtStakeCoinMemoryPool}
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion, NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
 
 import scala.util.Random
 
-class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings) extends NodeViewHolder[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock] {
+class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings)
+  extends NodeViewHolder[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock] {
   override type SI = NothingAtStakeCoinSyncInfo
   override type HIS = NothingAtStakeCoinHistory
   override type MS = NothingAtStakeCoinMinimalState
@@ -25,35 +24,29 @@ class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings) ext
   override protected def genesisState: (HIS, MS, VL, MP) = {
     log.debug("Generating genesis block")
 
-    val wallet: NothingAtStakeCoinWallet = (1 to settings.genesisTxs).foldLeft(NothingAtStakeCoinWallet(settings)) { case (w, idx) =>
-      log.debug(s"Generating secret ${idx}")
-      w.generateNewSecret()
-    }
+    val wallet: NothingAtStakeCoinWallet = NothingAtStakeCoinWallet(settings)
 
-    val genesisTxs = wallet.publicKeys.map { pub =>
-      val priv = wallet.secretByPublicImage(pub).get
-      NothingAtStakeCoinTransaction(
-        IndexedSeq((priv, Random.nextLong())),
-        IndexedSeq((pub, 100000L)),
-        0L,
-        0L)
-    }.toSeq
+    val genesisTxs = (1 to settings.genesisTransactions).flatMap { _ =>
+      wallet.publicKeys.map { pub =>
+        val priv = wallet.secretByPublicImage(pub).get
+        NothingAtStakeCoinTransaction(
+          priv,
+          IndexedSeq(Random.nextLong()),
+          IndexedSeq((pub, settings.genesisTransactionAmount)),
+          0L,
+          0L)
+      }.toSeq
+    }.take(settings.genesisTransactions)
 
     val pubKeyGenesisBlock = wallet.publicKeys.head
 
-    val unsignedGenesisBlock = NothingAtStakeCoinBlock(
-      NothingAtStakeCoinBlock.GenesisBlockId,
+    val genesisBlock = NothingAtStakeCoinBlock(
+      parentId = NothingAtStakeCoinBlock.GenesisBlockId,
       timestamp = 0,
-      generationSignature = Array.fill(NothingAtStakeCoinBlock.SignatureLength)(1: Byte),
-      generator = pubKeyGenesisBlock,
-      Long.MaxValue,
+      generatorKeys = wallet.secretByPublicImage(pubKeyGenesisBlock).get,
+      coinAge = Long.MaxValue,
       txs = genesisTxs
     )
-
-    val genesisBlockSignature = PrivateKey25519Companion.sign(wallet.secretByPublicImage(pubKeyGenesisBlock).get,
-      unsignedGenesisBlock.companion.messageToSign(unsignedGenesisBlock))
-
-    val genesisBlock = unsignedGenesisBlock.copy(generationSignature = genesisBlockSignature.signature, generator = pubKeyGenesisBlock)
 
     val minimalState = NothingAtStakeCoinMinimalState.genesisState().applyModifier(genesisBlock).get
 

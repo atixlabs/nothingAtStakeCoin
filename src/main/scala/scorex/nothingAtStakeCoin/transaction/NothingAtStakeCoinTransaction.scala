@@ -1,4 +1,4 @@
-package scorex.nothingAtStakeCoin.state
+package scorex.nothingAtStakeCoin.transaction
 
 import com.google.common.primitives.{Bytes, Ints, Longs}
 import io.circe.Json
@@ -9,20 +9,31 @@ import scorex.core.transaction.BoxTransaction
 import scorex.core.transaction.account.PublicKeyNoncedBox
 import scorex.core.transaction.box.BoxUnlocker
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
-import scorex.core.transaction.proof.{Proof, Signature25519}
+import scorex.core.transaction.proof.Signature25519
 import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
-import scorex.crypto.encode.{Base58, Base64}
+import scorex.crypto.encode.Base64
 import scorex.crypto.signatures.Curve25519
-import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction._
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction.{Nonce, Value}
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
+import scorex.nothingAtStakeCoin.{NothingAtStakeCoinMinimalState, NothingAtStakeCoinWallet}
 
+import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
 case class NothingAtStakeCoinInput(proposition: PublicKey25519Proposition, nonce: Nonce) {
   lazy val id: Array[Byte] = PublicKeyNoncedBox.idFromBox(proposition, nonce)
+
+  lazy val json: Json = Map(
+    "address" -> proposition.address.asJson
+  ).asJson
 }
 
-case class NothingAtStakeCoinOutput(proposition: PublicKey25519Proposition, value: Value)
+case class NothingAtStakeCoinOutput(proposition: PublicKey25519Proposition, value: Value) {
+  lazy val json: Json = Map(
+    "address" -> proposition.address.asJson,
+    "value" -> value.asJson
+  ).asJson
+}
 
 case class NothingAtStakeCoinTransaction(
                                           from: IndexedSeq[NothingAtStakeCoinInput],
@@ -42,7 +53,7 @@ case class NothingAtStakeCoinTransaction(
 
   override val newBoxes: Traversable[PublicKey25519NoncedBox] = to.zipWithIndex.map {
     case (output, index) =>
-      val nonce = generateNonce(output, from, timestamp, index)
+      val nonce = NothingAtStakeCoinTransaction.generateNonce(output, from, timestamp, index)
       PublicKey25519NoncedBox(output.proposition, nonce, output.value)
   }
 
@@ -51,8 +62,8 @@ case class NothingAtStakeCoinTransaction(
   override lazy val companion = NothingAtStakeCoinNodeNodeViewModifierCompanion
 
   override lazy val json: Json = Map(
-    "from" -> from.map(input => Base58.encode(input.proposition.pubKeyBytes)).asJson,
-    "to" -> from.map(output => Base58.encode(output.proposition.pubKeyBytes)).asJson,
+    "from" -> from.map(_.json).toList.asJson,
+    "to" -> to.map(_.json).toList.asJson,
     "signatures" -> signatures.map(signature => Base64.encode(signature.bytes)).asJson,
     "fee" -> fee.asJson,
     "timestamp" -> timestamp.asJson
@@ -131,20 +142,21 @@ object NothingAtStakeCoinTransaction {
   type Value = Long
   type Nonce = Long
 
-  def apply(from: IndexedSeq[(PrivateKey25519, Nonce)],
+  def apply(fromPk: PrivateKey25519,
+            from: IndexedSeq[Nonce],
             to: IndexedSeq[(PublicKey25519Proposition, Value)],
             fee: Long,
             timestamp: Long): NothingAtStakeCoinTransaction = {
 
     val withoutSignature: NothingAtStakeCoinTransaction = new NothingAtStakeCoinTransaction(
-      from = from.map { case (k: PrivateKey25519, n: Nonce) => NothingAtStakeCoinInput(k.publicImage, n) },
+      from = from.map { case (n: Nonce) => NothingAtStakeCoinInput(fromPk.publicImage, n) },
       to = to.map { case (p: PublicKey25519Proposition, n: Nonce) => NothingAtStakeCoinOutput(p, n) },
-      signatures = from.map { case (k: PrivateKey25519, _) => PrivateKey25519Companion.sign(k, Array.emptyByteArray) },
+      signatures = from.map { _ => PrivateKey25519Companion.sign(fromPk, Array.emptyByteArray) },
       fee = fee,
       timestamp = timestamp
     )
 
-    val signatures = from.map { case (k: PrivateKey25519, _) => PrivateKey25519Companion.sign(k, withoutSignature.messageToSign) }
+    val signatures = from.map { _ => PrivateKey25519Companion.sign(fromPk, withoutSignature.messageToSign) }
 
     NothingAtStakeCoinTransaction(
       withoutSignature.from,
@@ -153,6 +165,48 @@ object NothingAtStakeCoinTransaction {
       fee,
       timestamp
     )
+  }
+
+  def apply(state: NothingAtStakeCoinMinimalState,
+            fromPk: PrivateKey25519,
+            from: String,
+            to: IndexedSeq[String],
+            amount: IndexedSeq[Long],
+            fee: Long,
+            timestamp: Long): NothingAtStakeCoinTransaction = {
+
+    val totalAmountToSend = amount.sum + fee
+
+    val sender: PublicKey25519Proposition = PublicKey25519Proposition.validPubKey(from) match {
+      case Success(pk: PublicKey25519Proposition) => pk
+      case Failure(err) => throw err
+    }
+
+    val unspentsToUse: (Long, Seq[PublicKey25519NoncedBox]) = findUnspentsToPay(totalAmountToSend, state.boxesOf(sender), 0, Seq())
+
+    val toPropositions: IndexedSeq[(PublicKey25519Proposition, Value)] = to.zip(amount).map {
+      case (address: String, amount: Long) => (PublicKey25519Proposition.validPubKey(address).get, amount)
+    }
+
+    // Add change if needed
+    val propositions = if (unspentsToUse._1 > totalAmountToSend) toPropositions :+ (PublicKey25519Proposition.validPubKey(from).get, unspentsToUse._1 - totalAmountToSend) else toPropositions
+
+    NothingAtStakeCoinTransaction(
+      fromPk,
+      unspentsToUse._2.map(_.nonce).toIndexedSeq,
+      propositions.to,
+      fee,
+      timestamp
+    )
+
+  }
+
+  @tailrec
+  private def findUnspentsToPay(totalAmountToSend: Value, boxes: Seq[PublicKey25519NoncedBox], acum: Long, boxesToUse: Seq[PublicKey25519NoncedBox]): (Long, Seq[PublicKey25519NoncedBox]) = {
+    acum match {
+      case _ if acum >= totalAmountToSend => (acum, boxesToUse)
+      case _ if acum < totalAmountToSend => findUnspentsToPay(totalAmountToSend, boxes.tail, acum + boxes.head.value, boxesToUse :+ boxes.head)
+    }
   }
 
   def generateNonce(output: NothingAtStakeCoinOutput, inputs: Seq[NothingAtStakeCoinInput], timestamp: Long, index: Int): Long =

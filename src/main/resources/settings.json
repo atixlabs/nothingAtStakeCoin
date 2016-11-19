@@ -11,7 +11,6 @@
     ],
     "maxConnections": 10
   },
-  "walletDir": "/tmp/scorex/wallet",
   "walletPassword": "cookies",
   "walletSeed": "genesis",
   "dataDir": "/tmp/scorex/data",
@@ -23,6 +22,10 @@
   "blockGenerationDelay": 0,
   "cors": false,
   "nothingAtStakeCoin": {
-    "genesisTxs": 10
+    "transactionsPerBlock": 10,
+    "genesisTransactions": 10,
+    "genesisTransactionAmount": 1000000,
+    "minStakeMinutes": 1,
+    "maxStakeMinutes": 10
   }
 }

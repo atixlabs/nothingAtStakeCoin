@@ -1,28 +1,38 @@
 package scorex.nothingAtStakeCoin.transaction
 
+import java.nio.ByteBuffer
+
 import scorex.core.{NodeViewComponentCompanion, NodeViewModifier}
 import scorex.core.NodeViewModifier.ModifierId
 import scorex.core.transaction.MemoryPool
-import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
 
-import scala.util.Try
+import scala.util.{Success, Try}
 
-case class NothingAtStakeCoinMemoryPool(unconfirmed: Map[NodeViewModifier.ModifierId, NothingAtStakeCoinTransaction]) extends MemoryPool[NothingAtStakeCoinTransaction, NothingAtStakeCoinMemoryPool] {
-  override def getById(id: ModifierId): Option[NothingAtStakeCoinTransaction] = ???
+case class NothingAtStakeCoinMemoryPool(unconfirmed: Map[ByteBuffer, NothingAtStakeCoinTransaction])
+  extends MemoryPool[NothingAtStakeCoinTransaction, NothingAtStakeCoinMemoryPool] {
+
+  private def toStoreableId(id: ModifierId) = ByteBuffer.wrap(id)
+
+  override def getById(id: ModifierId): Option[NothingAtStakeCoinTransaction] = unconfirmed.get(toStoreableId(id))
 
   override def notIn(ids: Seq[ModifierId]): Seq[ModifierId] = ???
 
-  override def getAll(ids: Seq[ModifierId]): Seq[NothingAtStakeCoinTransaction] = ???
+  override def getAll(ids: Seq[ModifierId]): Seq[NothingAtStakeCoinTransaction] = ids.flatMap(getById)
 
-  override def put(tx: NothingAtStakeCoinTransaction): Try[NothingAtStakeCoinMemoryPool] = ???
+  override def put(tx: NothingAtStakeCoinTransaction): Try[NothingAtStakeCoinMemoryPool] =
+    Success(NothingAtStakeCoinMemoryPool(unconfirmed + (toStoreableId(tx.id) -> tx)))
 
-  override def put(txs: Iterable[NothingAtStakeCoinTransaction]): Try[NothingAtStakeCoinMemoryPool] = ???
+  override def put(txs: Iterable[NothingAtStakeCoinTransaction]): Try[NothingAtStakeCoinMemoryPool] =
+    Success(NothingAtStakeCoinMemoryPool(unconfirmed ++ txs.map(tx => toStoreableId(tx.id) -> tx)))
 
-  override def putWithoutCheck(txs: Iterable[NothingAtStakeCoinTransaction]): NothingAtStakeCoinMemoryPool = ???
+  override def putWithoutCheck(txs: Iterable[NothingAtStakeCoinTransaction]): NothingAtStakeCoinMemoryPool =
+    NothingAtStakeCoinMemoryPool(unconfirmed ++ txs.map(tx => toStoreableId(tx.id) -> tx))
 
-  override def remove(tx: NothingAtStakeCoinTransaction): NothingAtStakeCoinMemoryPool = ???
+  override def remove(tx: NothingAtStakeCoinTransaction): NothingAtStakeCoinMemoryPool = {
+    NothingAtStakeCoinMemoryPool(unconfirmed - toStoreableId(tx.id))
+  }
 
-  override def take(limit: Int): Iterable[NothingAtStakeCoinTransaction] = ???
+  override def take(limit: Int): Iterable[NothingAtStakeCoinTransaction] = unconfirmed.values.take(limit)
 
   override def filter(id: Array[Byte]): NothingAtStakeCoinMemoryPool = ???
 
