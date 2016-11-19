@@ -9,8 +9,7 @@ import scorex.core.consensus.History.{BlockId, RollbackTo}
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinSyncInfo
 import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinHistory.sonsSize
-import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion}
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion, NothingAtStakeCoinTransaction}
 
 import scala.util.{Failure, Success, Try}
 import scorex.core.utils.ScorexLogging

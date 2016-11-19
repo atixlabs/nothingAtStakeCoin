@@ -3,8 +3,7 @@ package scorex.nothingAtStakeCoin
 import akka.actor.ActorRef
 import scorex.core.LocalInterface
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
-import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
-import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinTransaction}
 
 class NothingAtStakeCoinLocalInterface(override val viewHolderRef: ActorRef)
   extends LocalInterface[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock] {

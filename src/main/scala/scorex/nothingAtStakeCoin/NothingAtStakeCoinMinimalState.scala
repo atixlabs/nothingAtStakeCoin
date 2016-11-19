@@ -5,8 +5,7 @@ import scorex.core.block.StateChanges
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.MinimalState.VersionTag
 import scorex.core.transaction.state.authenticated.BoxMinimalState
-import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
-import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinTransaction}
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
 
 import scala.util.{Success, Try}

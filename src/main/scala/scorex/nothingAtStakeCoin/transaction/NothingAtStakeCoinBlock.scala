@@ -1,20 +1,18 @@
 package scorex.nothingAtStakeCoin.transaction
 
-import io.circe.Json
-import scorex.core.NodeViewModifier.{ModifierId, ModifierTypeId}
-import scorex.core.{NodeViewModifier, NodeViewModifierCompanion}
-import scorex.core.block.Block
-import scorex.core.block.Block.{BlockId, Timestamp, Version}
-import scorex.core.transaction.box.proposition.PublicKey25519Proposition
-import scorex.nothingAtStakeCoin.state.{NothingAtStakeCoinNodeNodeViewModifierCompanion, NothingAtStakeCoinTransaction}
-import shapeless.{::, HNil}
 import com.google.common.primitives.{Ints, Longs}
+import io.circe.Json
+import io.circe.syntax._
+import scorex.core.NodeViewModifier.{ModifierId, ModifierTypeId}
+import scorex.core.block.Block
+import scorex.core.block.Block.{Timestamp, Version}
 import scorex.core.crypto.hash.FastCryptographicHash
-import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.GenerationSignature
+import scorex.core.transaction.box.proposition.PublicKey25519Proposition
+import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
+import scorex.core.{NodeViewModifier, NodeViewModifierCompanion}
 import scorex.crypto.encode.Base58
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.{CoinAgeLength, GenerationSignature}
-import io.circe.syntax._
-import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
+import shapeless.{::, HNil}
 
 import scala.util.{Failure, Success, Try}
 

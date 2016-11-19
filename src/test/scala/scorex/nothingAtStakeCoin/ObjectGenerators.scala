@@ -5,8 +5,8 @@ import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.proof.Signature25519
 import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
 import scorex.crypto.signatures.Curve25519
-import scorex.nothingAtStakeCoin.state.{NothingAtStakeCoinInput, NothingAtStakeCoinOutput, NothingAtStakeCoinTransaction}
-import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinInput, NothingAtStakeCoinOutput}
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinInput, NothingAtStakeCoinOutput, NothingAtStakeCoinTransaction}
 import scorex.core.block.Block.Timestamp
 import scorex.core.NodeViewModifier.{ModifierId, ModifierIdSize}
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.CoinAgeLength

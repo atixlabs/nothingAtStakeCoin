@@ -1,4 +1,4 @@
-package scorex.nothingAtStakeCoin.state
+package scorex.nothingAtStakeCoin.transaction
 
 import com.google.common.primitives.{Bytes, Ints, Longs}
 import io.circe.Json
@@ -9,20 +9,30 @@ import scorex.core.transaction.BoxTransaction
 import scorex.core.transaction.account.PublicKeyNoncedBox
 import scorex.core.transaction.box.BoxUnlocker
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
-import scorex.core.transaction.proof.{Proof, Signature25519}
+import scorex.core.transaction.proof.Signature25519
 import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
-import scorex.crypto.encode.{Base58, Base64}
+import scorex.crypto.encode.Base64
 import scorex.crypto.signatures.Curve25519
-import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction._
+import scorex.nothingAtStakeCoin.NothingAtStakeCoinWallet
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction.{Nonce, Value}
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Random, Success, Try}
 
 case class NothingAtStakeCoinInput(proposition: PublicKey25519Proposition, nonce: Nonce) {
   lazy val id: Array[Byte] = PublicKeyNoncedBox.idFromBox(proposition, nonce)
+
+  lazy val json: Json = Map(
+    "address" -> proposition.address.asJson
+  ).asJson
 }
 
-case class NothingAtStakeCoinOutput(proposition: PublicKey25519Proposition, value: Value)
+case class NothingAtStakeCoinOutput(proposition: PublicKey25519Proposition, value: Value) {
+  lazy val json: Json = Map(
+    "address" -> proposition.address.asJson,
+    "value" -> value.asJson
+  ).asJson
+}
 
 case class NothingAtStakeCoinTransaction(
                                           from: IndexedSeq[NothingAtStakeCoinInput],
@@ -42,7 +52,7 @@ case class NothingAtStakeCoinTransaction(
 
   override val newBoxes: Traversable[PublicKey25519NoncedBox] = to.zipWithIndex.map {
     case (output, index) =>
-      val nonce = generateNonce(output, from, timestamp, index)
+      val nonce = NothingAtStakeCoinTransaction.generateNonce(output, from, timestamp, index)
       PublicKey25519NoncedBox(output.proposition, nonce, output.value)
   }
 
@@ -51,8 +61,8 @@ case class NothingAtStakeCoinTransaction(
   override lazy val companion = NothingAtStakeCoinNodeNodeViewModifierCompanion
 
   override lazy val json: Json = Map(
-    "from" -> from.map(input => Base58.encode(input.proposition.pubKeyBytes)).asJson,
-    "to" -> from.map(output => Base58.encode(output.proposition.pubKeyBytes)).asJson,
+    "from" -> from.map(_.json).toList.asJson,
+    "to" -> to.map(_.json).toList.asJson,
     "signatures" -> signatures.map(signature => Base64.encode(signature.bytes)).asJson,
     "fee" -> fee.asJson,
     "timestamp" -> timestamp.asJson
@@ -153,6 +163,18 @@ object NothingAtStakeCoinTransaction {
       fee,
       timestamp
     )
+  }
+
+  def apply(wallet: NothingAtStakeCoinWallet, from: IndexedSeq[String], to: IndexedSeq[String], amount: IndexedSeq[Long], fee: Long, time: Long): NothingAtStakeCoinTransaction = {
+    val senders = from.map((address: String) => PublicKey25519Proposition.validPubKey(address)).map {
+      case Success(pk: PublicKey25519Proposition) => (wallet.secretByPublicImage(pk).get, Random.nextLong())
+      case Failure(err) => throw err
+    }
+    val receivers = to.zip(amount).map {
+      case (address: String, amount: Long) => (PublicKey25519Proposition.validPubKey(address).get, amount)
+    }
+
+    NothingAtStakeCoinTransaction(senders, receivers, fee, time)
   }
 
   def generateNonce(output: NothingAtStakeCoinOutput, inputs: Seq[NothingAtStakeCoinInput], timestamp: Long, index: Int): Long =

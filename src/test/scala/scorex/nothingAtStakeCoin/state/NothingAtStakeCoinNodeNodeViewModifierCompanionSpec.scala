@@ -3,6 +3,7 @@ package scorex.nothingAtStakeCoin.state
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.nothingAtStakeCoin.ObjectGenerators
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinNodeNodeViewModifierCompanion, NothingAtStakeCoinTransaction}
 
 class NothingAtStakeCoinNodeNodeViewModifierCompanionSpec extends PropSpec
   with PropertyChecks

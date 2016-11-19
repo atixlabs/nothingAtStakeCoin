@@ -1,19 +1,18 @@
 package scorex.nothingAtStakeCoin
 
 import scorex.core.NodeViewModifier.ModifierTypeId
-import scorex.core.settings.Settings
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.PrivateKey25519Companion
 import scorex.core.{NodeViewHolder, NodeViewModifier, NodeViewModifierCompanion}
 import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinSyncInfo
 import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinHistory
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
-import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion, NothingAtStakeCoinMemoryPool}
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion, NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
 
 import scala.util.Random
 
-class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings) extends NodeViewHolder[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock] {
+class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings)
+  extends NodeViewHolder[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock] {
   override type SI = NothingAtStakeCoinSyncInfo
   override type HIS = NothingAtStakeCoinHistory
   override type MS = NothingAtStakeCoinMinimalState

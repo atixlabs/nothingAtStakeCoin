@@ -12,8 +12,7 @@ import scorex.core.transaction.account.PublicKeyNoncedBox
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
 import scorex.core.transaction.wallet.{Wallet, WalletBox, WalletTransaction}
-import scorex.nothingAtStakeCoin.state.NothingAtStakeCoinTransaction
-import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinTransaction}
 
 import scala.collection.JavaConversions._
 
@@ -53,9 +52,9 @@ case class NothingAtStakeCoinWallet(settings: Settings)
     NothingAtStakeCoinWallet(settings)
   }
 
-  override def scanOffchain(tx: TX): NothingAtStakeCoinWallet = ???
+  override def scanOffchain(tx: TX): NothingAtStakeCoinWallet = this
 
-  override def scanOffchain(txs: Seq[TX]): NothingAtStakeCoinWallet = ???
+  override def scanOffchain(txs: Seq[TX]): NothingAtStakeCoinWallet = this
 
   override def historyTransactions: Seq[WalletTransaction[PublicKey25519Proposition, TX]] = ???
 
@@ -76,7 +75,7 @@ case class NothingAtStakeCoinWallet(settings: Settings)
 
   override def companion: NodeViewComponentCompanion = ??? //todo: fix
 
-  override def scanPersistent(modifier: PMOD): NothingAtStakeCoinWallet = ???
+  override def scanPersistent(modifier: PMOD): NothingAtStakeCoinWallet = this
 
   def rollback(to: VersionTag) = ??? //todo: fix
 }
