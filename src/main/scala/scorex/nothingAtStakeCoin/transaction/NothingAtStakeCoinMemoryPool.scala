@@ -32,13 +32,14 @@ case class NothingAtStakeCoinMemoryPool(unconfirmed: Map[ByteBuffer, NothingAtSt
     NothingAtStakeCoinMemoryPool(unconfirmed - toStoreableId(tx.id))
   }
 
-  override def take(limit: Int): Iterable[NothingAtStakeCoinTransaction] = unconfirmed.values.take(limit)
+  override def take(limit: Int): Iterable[NothingAtStakeCoinTransaction] =
+    unconfirmed.values.toSeq.sortBy(-_.fee).take(limit)
 
-  override def filter(id: Array[Byte]): NothingAtStakeCoinMemoryPool = ???
+  override def filter(id: Array[Byte]): NothingAtStakeCoinMemoryPool = NothingAtStakeCoinMemoryPool(unconfirmed - ByteBuffer.wrap(id))
 
-  override def filter(tx: NothingAtStakeCoinTransaction): NothingAtStakeCoinMemoryPool = ???
+  override def filter(tx: NothingAtStakeCoinTransaction): NothingAtStakeCoinMemoryPool = remove(tx)
 
-  override def filter(txs: Seq[NothingAtStakeCoinTransaction]): NothingAtStakeCoinMemoryPool = ???
+  override def filter(txs: Seq[NothingAtStakeCoinTransaction]): NothingAtStakeCoinMemoryPool = txs.foldLeft(this)((mp, tx) => mp.filter(tx))
 
   override type NVCT = this.type
 

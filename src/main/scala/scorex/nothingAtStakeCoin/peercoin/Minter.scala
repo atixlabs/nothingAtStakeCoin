@@ -38,7 +38,7 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
     case CurrentView(history: NothingAtStakeCoinHistory, minimalState: NothingAtStakeCoinMinimalState, wallet: NothingAtStakeCoinWallet, memoryPool: NothingAtStakeCoinMemoryPool) => {
       log.info("[MintLoop] Current view received")
       if (!history.isEmpty) {
-        val block: Option[NothingAtStakeCoinBlock] = getTxs(memoryPool).filter(minimalState.isValid) match {
+        val block: Option[NothingAtStakeCoinBlock] = memoryPool.take(settings.transactionsPerBlock).filter(minimalState.isValid) match {
           case txs: Iterable[NothingAtStakeCoinTransaction] if txs.nonEmpty => {
             log.info(s"[MintLoop] Transactions ${txs.size}  found")
             val coinStakeBoxes = getCoinStakeBoxes(wallet, minimalState, txs).toSeq
@@ -92,12 +92,6 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
   }
 
   override def receive: Receive = stopped
-
-  private def getTxs(memoryPool: NothingAtStakeCoinMemoryPool): Iterable[NothingAtStakeCoinTransaction] = {
-    // FIXME Maybe it's better to take TX with better fees if we include fees in this project
-    memoryPool.take(settings.transactionsPerBlock)
-  }
-
 
   def generateBlock(minterPk: PrivateKey25519,
                     parent: NothingAtStakeCoinBlock,

@@ -76,7 +76,7 @@ object NothingAtStakeCoinBlock {
              txs: Seq[NothingAtStakeCoinTransaction]): NothingAtStakeCoinBlock = {
 
     val unsignedGenesisBlock = NothingAtStakeCoinBlock(
-      NothingAtStakeCoinBlock.GenesisBlockId,
+      parentId,
       timestamp = 0,
       generationSignature = Array.fill(NothingAtStakeCoinBlock.SignatureLength)(1: Byte),
       generator = generatorKeys.publicImage,
