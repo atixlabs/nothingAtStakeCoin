@@ -10,6 +10,7 @@ import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAt
 import scorex.core.block.Block.Timestamp
 import scorex.core.NodeViewModifier.{ModifierId, ModifierIdSize}
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.CoinAgeLength
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlockCompanion
 
 trait ObjectGenerators {
 
@@ -65,6 +66,13 @@ trait ObjectGenerators {
     timestamp = timestamp,
     generator = generator,
     coinAge = coinAge,
-    txs = txs
+    txs = txs.toSet.toSeq
   )
+
+  def genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(size : Int) : Gen[Seq[NothingAtStakeCoinBlock]] = {
+    Gen.listOfN(size, nothingAtSakeCoinBlockGenerator).map(_.toSeq)
+  }
+
+  lazy val nothingAtStakeCoinBlockSeqGenerator: Gen[Seq[NothingAtStakeCoinBlock]] =
+    Gen.listOf(nothingAtSakeCoinBlockGenerator).map(_.toSeq)
 }
