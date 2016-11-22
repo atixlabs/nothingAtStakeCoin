@@ -16,7 +16,7 @@ import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.NetworkTime
 import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinHistory
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinNodeNodeViewModifierCompanion, NothingAtStakeCoinTransaction}
 import scorex.nothingAtStakeCoin.{NothingAtStakeCoinMinimalState, NothingAtStakeCoinWallet}
 
 import scala.concurrent.Await
@@ -63,7 +63,7 @@ case class PaymentApiRoute(override val settings: NothingAtStakeCoinSettings, no
             val future = nodeViewHolderRef ? GetCurrentView
             val currentView = Await.result(future, 10.seconds).asInstanceOf[CurrentView[HIS, MS, VL, MP]]
 
-            Try(NothingAtStakeCoinTransaction(currentView.state, currentView.vault.secrets.head, from, to, amount, fee, NetworkTime.time())) match {
+            NothingAtStakeCoinNodeNodeViewModifierCompanion.createTransaction(currentView.state, currentView.vault.secrets.head, from, to, amount, fee, NetworkTime.time()) match {
               case Success(tx) => {
                 nodeViewHolderRef ! LocallyGeneratedTransaction.apply[PublicKey25519Proposition, NothingAtStakeCoinTransaction](tx)
                 Map("msg" -> "Transaction created").asJson

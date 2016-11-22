@@ -39,7 +39,7 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
       log.info("[MintLoop] Current view received")
       if (!history.isEmpty) {
         val block: Option[NothingAtStakeCoinBlock] = memoryPool.take(settings.transactionsPerBlock).filter(minimalState.isValid) match {
-          case txs: Iterable[NothingAtStakeCoinTransaction] if txs.nonEmpty => {
+          case txs: Iterable[NothingAtStakeCoinTransaction] if txs.size >= settings.transactionsPerBlock => {
             log.info(s"[MintLoop] Transactions ${txs.size}  found")
             val coinStakeBoxes = getCoinStakeBoxes(wallet, minimalState, txs).toSeq
             log.info(s"[MintLoop] ${coinStakeBoxes.size} coinstake boxes found found")
@@ -49,14 +49,14 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
                 .foldLeft(Seq[Option[NothingAtStakeCoinBlock]]())((list, blockId) => list :+ history.blockById(blockId))
                 .flatten
                 .sortBy(_.timestamp)
-              val txsToIncludeInBlock = txs.take(settings.transactionsPerBlock - 1).toSeq // At least we need to include one coinStake TX
+              val txsToIncludeInBlock = txs.take(settings.transactionsPerBlock).toSeq
               Some(generateBlock(wallet.secrets.head, parentBlocks.head, coinStakeBoxes, txsToIncludeInBlock, NetworkTime.time()))
             } else {
               log.info("[MintLoop] No stake to mint found")
               None
             }
           }
-          case txs: Iterable[NothingAtStakeCoinTransaction] if txs.isEmpty => None
+          case txs: Iterable[NothingAtStakeCoinTransaction] => None
         }
 
         if (block.isDefined) {

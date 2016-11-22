@@ -136,6 +136,50 @@ object NothingAtStakeCoinNodeNodeViewModifierCompanion extends NodeViewModifierC
       }._1
     reverseTxs.reverse
   }
+
+  def createTransaction(state: NothingAtStakeCoinMinimalState,
+                        fromPk: PrivateKey25519,
+                        from: String,
+                        to: IndexedSeq[String],
+                        amount: IndexedSeq[Long],
+                        fee: Long,
+                        timestamp: Long): Try[NothingAtStakeCoinTransaction] = Try {
+
+    val totalAmountToSend = amount.sum + fee
+
+    val sender: PublicKey25519Proposition = PublicKey25519Proposition.validPubKey(from) match {
+      case Success(pk: PublicKey25519Proposition) => pk
+      case Failure(err) => throw err
+    }
+
+    val toPropositions: IndexedSeq[(PublicKey25519Proposition, Value)] = to.zip(amount).map {
+      case (address: String, amount: Long) => (PublicKey25519Proposition.validPubKey(address).get, amount)
+    }
+
+    val unspentsToUse: (Long, Seq[PublicKey25519NoncedBox]) = findUnspentsToPay(totalAmountToSend, state.boxesOf(sender), 0, Seq())
+
+    val propositions = unspentsToUse match {
+      case (unspentsAmount, boxes) if unspentsAmount > totalAmountToSend => toPropositions :+ (PublicKey25519Proposition.validPubKey(from).get, unspentsToUse._1 - totalAmountToSend)
+      case (unspentsAmount, boxes) if unspentsAmount == totalAmountToSend => toPropositions
+      case (unspentsAmount, boxes) if unspentsAmount < totalAmountToSend => throw new Exception("Not Enough funds to spend")
+    }
+
+    NothingAtStakeCoinTransaction(
+      fromPk,
+      unspentsToUse._2.map(_.nonce).toIndexedSeq,
+      propositions.to,
+      fee,
+      timestamp
+    )
+  }
+
+  @tailrec
+  private def findUnspentsToPay(totalAmountToSend: Value, boxes: Seq[PublicKey25519NoncedBox], acum: Long, boxesToUse: Seq[PublicKey25519NoncedBox]): (Long, Seq[PublicKey25519NoncedBox]) = {
+    acum match {
+      case _ if acum >= totalAmountToSend || boxes.isEmpty => (acum, boxesToUse)
+      case _ if acum < totalAmountToSend => findUnspentsToPay(totalAmountToSend, boxes.tail, acum + boxes.head.value, boxesToUse :+ boxes.head)
+    }
+  }
 }
 
 object NothingAtStakeCoinTransaction {
@@ -165,48 +209,6 @@ object NothingAtStakeCoinTransaction {
       fee,
       timestamp
     )
-  }
-
-  def apply(state: NothingAtStakeCoinMinimalState,
-            fromPk: PrivateKey25519,
-            from: String,
-            to: IndexedSeq[String],
-            amount: IndexedSeq[Long],
-            fee: Long,
-            timestamp: Long): NothingAtStakeCoinTransaction = {
-
-    val totalAmountToSend = amount.sum + fee
-
-    val sender: PublicKey25519Proposition = PublicKey25519Proposition.validPubKey(from) match {
-      case Success(pk: PublicKey25519Proposition) => pk
-      case Failure(err) => throw err
-    }
-
-    val unspentsToUse: (Long, Seq[PublicKey25519NoncedBox]) = findUnspentsToPay(totalAmountToSend, state.boxesOf(sender), 0, Seq())
-
-    val toPropositions: IndexedSeq[(PublicKey25519Proposition, Value)] = to.zip(amount).map {
-      case (address: String, amount: Long) => (PublicKey25519Proposition.validPubKey(address).get, amount)
-    }
-
-    // Add change if needed
-    val propositions = if (unspentsToUse._1 > totalAmountToSend) toPropositions :+ (PublicKey25519Proposition.validPubKey(from).get, unspentsToUse._1 - totalAmountToSend) else toPropositions
-
-    NothingAtStakeCoinTransaction(
-      fromPk,
-      unspentsToUse._2.map(_.nonce).toIndexedSeq,
-      propositions.to,
-      fee,
-      timestamp
-    )
-
-  }
-
-  @tailrec
-  private def findUnspentsToPay(totalAmountToSend: Value, boxes: Seq[PublicKey25519NoncedBox], acum: Long, boxesToUse: Seq[PublicKey25519NoncedBox]): (Long, Seq[PublicKey25519NoncedBox]) = {
-    acum match {
-      case _ if acum >= totalAmountToSend => (acum, boxesToUse)
-      case _ if acum < totalAmountToSend => findUnspentsToPay(totalAmountToSend, boxes.tail, acum + boxes.head.value, boxesToUse :+ boxes.head)
-    }
   }
 
   def generateNonce(output: NothingAtStakeCoinOutput, inputs: Seq[NothingAtStakeCoinInput], timestamp: Long, index: Int): Long =
