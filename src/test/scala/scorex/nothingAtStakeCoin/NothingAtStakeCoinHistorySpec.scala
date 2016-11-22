@@ -133,7 +133,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
           newHistory
       }
     }
-    scenario("BlockChain forks and N chains limit is surpassed"){
+    scenario("BlockChain forks and N chains limit is surpassed without recursive removal"){
       Given("a history with N chains")
       val emptyHistory = NothingAtStakeCoinHistory()
       val genesisKeyPair = keyGenerator.sample.get
@@ -160,19 +160,39 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       Then("the block was added successfully")
       assert(optHistoryWithBlockRemoved.isSuccess)
       val historyWithBlockRemoved = optHistoryWithBlockRemoved.get._1
+      newBlockCorrectlyInHistory(historyWithBlockRemoved, signedBlock)
 
-      Then("the number of blocks is N")
-      assert(historyWithBlockRemoved.blocks.size==historyWithNChains.blocks.size)
+      Then("the number of blocks is N+1")
+      assert(historyWithBlockRemoved.blocks.size==NothingAtStakeCoinHistory.N+1)
 
-      Then("the new history removed the correct block from history.bestNChains")
+      Then("the new history removed the correct block from history")
       val diffPrevWithNew = historyWithNChains.bestNChains diff historyWithBlockRemoved.bestNChains
       val diffNewWithPrev = historyWithBlockRemoved.bestNChains diff historyWithNChains.bestNChains
       assert(diffNewWithPrev.size==1 && diffPrevWithNew.size==1)
-      assert(historyWithBlockRemoved.blocksInfo(diffNewWithPrev.head).totalCoinAge >=
-        historyWithNChains.blocksInfo(diffPrevWithNew.head).totalCoinAge)
+      val idBlockAdded = diffNewWithPrev.head
+      val idBlockRemoved = diffPrevWithNew.head
+      assert(historyWithBlockRemoved.blocks.get(idBlockAdded).isDefined)
+      assert(historyWithBlockRemoved.blocks.get(idBlockRemoved).isEmpty)
+      assert(historyWithBlockRemoved.blocksInfo.get(idBlockAdded).isDefined)
+      assert(historyWithBlockRemoved.blocksInfo.get(idBlockRemoved).isEmpty)
+      assert(historyWithBlockRemoved.blocksInfo(idBlockAdded).totalCoinAge >=
+        historyWithNChains.blocksInfo(idBlockRemoved).totalCoinAge)
 
       Then("genesisBlock has N sons")
       assert(historyWithBlockRemoved.blocksInfo(blockIdToByteBuffer(genesisBlock.id)).sons==NothingAtStakeCoinHistory.N)
+    }
+    scenario("BlockChain forks and N chains limit is surpassed with recursive removal"){
+      Given("a history with N chains of length 2 and genesys block where fork ocurred")
+
+      When("adding an extra block with the highest totalCoinAge and having genesys block as parent")
+
+      Then("the block was added successfully")
+
+      Then("the number of blocks is 2*N")
+
+      Then("the new history removed the correct chain from history")
+
+      Then("genesisBlock has N sons")
     }
   }
 }
