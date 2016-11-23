@@ -171,6 +171,26 @@ case class NothingAtStakeCoinHistory(blocks: Map[ByteBuffer, NothingAtStakeCoinB
     }
   }
 
+  def getCoinAge(tx : NothingAtStakeCoinTransaction) : Try[CoinAgeLength] = {
+    tx.newBoxes.foldLeft[Try[CoinAgeLength]](Success(0)){ (tryPrevTotalCoinAge, box) =>
+      tryPrevTotalCoinAge match {
+        case Success(prevTotalCoinAge) => getCoinAge(box).map(boxCoinAge => boxCoinAge + prevTotalCoinAge)
+        case Failure(e) => Failure(e)
+      }
+    }
+  }
+
+  def getCoinAge(block : NothingAtStakeCoinBlock) : Try[CoinAgeLength] = {
+    block.txs.foldLeft[Try[CoinAgeLength]](Success(0)) { (tryPrevTotalCoinAge, tx) =>
+      tryPrevTotalCoinAge match {
+        case Success(prevTotalCoinAge) => getCoinAge(tx).map(txCoinAge => txCoinAge + prevTotalCoinAge)
+        case Failure(e) => Failure(e)
+      }
+    }
+  }
+
+  def getStakeReward(box : PublicKey25519NoncedBox) : Try[Long] = getCoinAge(box).map(_ * 33 / (365 * 33 + 8) * 10000)
+
   private def checkStakeKernelHash(block: NothingAtStakeCoinBlock): Boolean = true
 }
 
