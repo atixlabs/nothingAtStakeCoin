@@ -1,5 +1,6 @@
 package scorex.nothingAtStakeCoin
 
+import io.circe
 import org.scalacheck.{Arbitrary, Gen}
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.proof.Signature25519
@@ -11,6 +12,7 @@ import scorex.core.block.Block.Timestamp
 import scorex.core.NodeViewModifier.{ModifierId, ModifierIdSize}
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.CoinAgeLength
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlockCompanion
+import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 
 trait ObjectGenerators {
 
@@ -50,8 +52,12 @@ trait ObjectGenerators {
     timestamp = timestamp
   )
 
+  lazy val settings: NothingAtStakeCoinSettings = new NothingAtStakeCoinSettings {
+    override val settingsJSON: Map[String, circe.Json] = settingsFromFile("test-settings.json")
+  }
+
   lazy val nothingAtStakeCoinTransactionSeqGenerator: Gen[Seq[NothingAtStakeCoinTransaction]] =
-    Gen.listOf(nothingAtSakeCoinTransactionGenerator).map(_.toSeq)
+    Gen.listOfN(settings.transactionsPerBlock, nothingAtSakeCoinTransactionGenerator).map(_.toSeq)
 
   lazy val nothingAtSakeCoinBlockGenerator: Gen[NothingAtStakeCoinBlock] = for {
     parentId: ModifierId <- genBytesList(ModifierIdSize)
