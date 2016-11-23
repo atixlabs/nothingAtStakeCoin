@@ -149,10 +149,13 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
           newHistory
       }
 
-      When("adding an extra block")
+      When("adding an extra block that causes the removal of a chain from history")
+      val chainWithBestTotalCoinAge : ByteBuffer = historyWithNChains.bestNChains.maxBy(blockId => historyWithNChains.blocksInfo.get(blockId).map(_.totalCoinAge).get)
+      val blockCoinAge = historyWithNChains.blocksInfo(chainWithBestTotalCoinAge).totalCoinAge+1
+
       val keyPair = keyGenerator.sample.get
       val signedBlock = NothingAtStakeCoinBlockCompanion.signBlock(keyPair._1,
-        nothingAtSakeCoinBlockGenerator.sample.get.copy(generator = keyPair._2, parentId = genesisBlock.id))
+        nothingAtSakeCoinBlockGenerator.sample.get.copy(generator = keyPair._2, parentId = genesisBlock.id, coinAge = blockCoinAge))
       val optHistoryWithBlockRemoved = historyWithNChains.append(signedBlock)
 
       Then("the block was added successfully")
