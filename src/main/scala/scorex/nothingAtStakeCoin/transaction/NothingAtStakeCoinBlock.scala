@@ -71,7 +71,7 @@ object NothingAtStakeCoinBlock {
   def apply(
              parentId: ModifierId,
              timestamp: Timestamp,
-             generatorKeys: PrivateKey25519,
+               generatorKeys: PrivateKey25519,
              coinAge: CoinAgeLength,
              txs: Seq[NothingAtStakeCoinTransaction]): NothingAtStakeCoinBlock = {
 

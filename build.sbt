@@ -11,7 +11,8 @@ libraryDependencies ++= Seq(
   "org.scorexfoundation" %% "scorex-basics" % "2.0.0-SNAPSHOT",
   "org.scalatest" %% "scalatest" % "2.+" % "test",
   "org.scalactic" %% "scalactic" % "2.+" % "test",
-  "org.scalacheck" %% "scalacheck" % "1.12.+" % "test"
+  "org.scalacheck" %% "scalacheck" % "1.12.+" % "test",
+  "com.typesafe.akka" %% "akka-testkit" % "2.4.14"
 )
 
 scalacOptions ++= Seq("-feature", "-deprecation")

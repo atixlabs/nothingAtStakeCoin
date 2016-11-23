@@ -31,7 +31,7 @@ trait ObjectGenerators {
     Gen.listOf(keyGenerator.map(keyPair => NothingAtStakeCoinOutput(keyPair._2, Arbitrary.arbitrary[Long].sample.get)))
       .map(_.toIndexedSeq)
 
-  lazy val signatureGenerator : Gen[Signature25519] = genBytesList(Signature25519.SignatureSize).map(b => Signature25519(b))
+  lazy val signatureGenerator: Gen[Signature25519] = genBytesList(Signature25519.SignatureSize).map(b => Signature25519(b))
 
   lazy val signaturesGenerator: Gen[IndexedSeq[Signature25519]] =
     Gen.listOf(signatureGenerator).map(_.toIndexedSeq)
@@ -57,19 +57,17 @@ trait ObjectGenerators {
     parentId: ModifierId <- genBytesList(ModifierIdSize)
     timestamp: Timestamp <- Arbitrary.arbitrary[Long]
     coinAge: CoinAgeLength <- Arbitrary.arbitrary[Long]
-    generationSignature <- signatureGenerator
-    generator <- keyGenerator.map(_._2)
+    key <- keyGenerator
     txs <- nothingAtStakeCoinTransactionSeqGenerator
-  } yield new NothingAtStakeCoinBlock(
+  } yield NothingAtStakeCoinBlock(
     parentId = parentId,
-    generationSignature = generationSignature.bytes,
     timestamp = timestamp,
-    generator = generator,
+    generatorKeys = key._1,
     coinAge = coinAge,
     txs = txs.toSet.toSeq
   )
 
-  def genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(size : Int) : Gen[Seq[NothingAtStakeCoinBlock]] = {
+  def genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(size: Int): Gen[Seq[NothingAtStakeCoinBlock]] = {
     Gen.listOfN(size, nothingAtSakeCoinBlockGenerator).map(_.toSeq)
   }
 

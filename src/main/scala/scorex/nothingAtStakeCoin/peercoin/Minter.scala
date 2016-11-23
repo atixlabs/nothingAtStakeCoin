@@ -11,6 +11,7 @@ import scorex.core.utils.{NetworkTime, ScorexLogging}
 import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinHistory
 import scorex.nothingAtStakeCoin.peercoin.Minter.{MintLoop, StartMinting, StopMiniting}
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction._
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
 import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
 import scorex.nothingAtStakeCoin.{NothingAtStakeCoinMinimalState, NothingAtStakeCoinWallet}
@@ -39,7 +40,7 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
       log.info("[MintLoop] Current view received")
       if (!history.isEmpty) {
         val block: Option[NothingAtStakeCoinBlock] = memoryPool.take(settings.transactionsPerBlock).filter(minimalState.isValid) match {
-          case txs: Iterable[NothingAtStakeCoinTransaction] if txs.size >= settings.transactionsPerBlock => {
+          case txs: Iterable[NothingAtStakeCoinTransaction] if txs.size == settings.transactionsPerBlock => {
             log.info(s"[MintLoop] Transactions ${txs.size}  found")
             val coinStakeBoxes = getCoinStakeBoxes(wallet, minimalState, txs).toSeq
             log.info(s"[MintLoop] ${coinStakeBoxes.size} coinstake boxes found found")
@@ -83,11 +84,11 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
                         minimalState: NothingAtStakeCoinMinimalState,
                         txs: Iterable[NothingAtStakeCoinTransaction]): Set[PublicKey25519NoncedBox] = {
 
-    val walletUnspents: Set[PublicKey25519NoncedBox] = wallet.publicKeys.flatMap(minimalState.boxesOf)
-
-    txs.flatMap(_.from).foldLeft(Set[PublicKey25519NoncedBox]()) {
-      case (unspents, input) => unspents ++ walletUnspents.filter(p => p.nonce != input.nonce)
+    val txUnspents = txs.flatMap(_.from).foldLeft(Set[(PublicKey25519Proposition, Nonce)]()) {
+      case (unspents, input) => unspents + (input.proposition -> input.nonce)
     }
+
+    wallet.publicKeys.flatMap(minimalState.boxesOf).filter(unspent => !txUnspents.contains(unspent.proposition -> unspent.nonce))
 
   }
 

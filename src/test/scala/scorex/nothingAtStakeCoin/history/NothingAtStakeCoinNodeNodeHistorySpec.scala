@@ -6,9 +6,7 @@ import org.scalatest.{FeatureSpec, GivenWhenThen, Matchers}
 import scorex.core.NodeViewModifier
 import scorex.core.NodeViewModifier.ModifierId
 import scorex.core.block.Block.BlockId
-import scorex.core.transaction.state.PrivateKey25519Companion
 import scorex.core.utils.ScorexLogging
-import scorex.crypto.encode.Base58
 import scorex.nothingAtStakeCoin.ObjectGenerators
 import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion}
 
