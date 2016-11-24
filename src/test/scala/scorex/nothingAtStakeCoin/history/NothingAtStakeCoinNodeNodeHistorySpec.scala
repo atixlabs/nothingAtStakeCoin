@@ -111,7 +111,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       val historyWithOneBlock = emptyHistory.append(genesisBlock).get._1
 
       val blocksSeq: Seq[NothingAtStakeCoinBlock] = genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(numberOfBestChains).sample.get
-      val historyWithNChains = blocksSeq.foldLeft[NothingAtStakeCoinHistory](historyWithOneBlock) {
+      blocksSeq.foldLeft[NothingAtStakeCoinHistory](historyWithOneBlock) {
         case (prevHistory, block) =>
           When("adding new forks")
           val keyPair = keyGenerator.sample.get
