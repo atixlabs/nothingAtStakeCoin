@@ -1,20 +1,20 @@
-package scorex.nothingAtStakeCoin.history
+package scorex.nothingAtStakeCoin.consensus
 
 import java.nio.ByteBuffer
 
 import scorex.core.NodeViewComponentCompanion
-import scorex.core.NodeViewModifier.{ModifierId, ModifierTypeId}
+import scorex.core.NodeViewModifier._
 import scorex.core.consensus.History
-import scorex.core.consensus.History.{BlockId, RollbackTo}
+import scorex.core.consensus.History.{RollbackTo, _}
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
-import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinSyncInfo
-import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinHistory.{BlockIndexLength, sonsSize}
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion, NothingAtStakeCoinTransaction}
+import scorex.core.utils.ScorexLogging
+import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock._
+import scorex.nothingAtStakeCoin.block.{NothingAtStakeCoinBlock, NothingAtStakeCoinSyncInfo}
+import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory.{BlockIndexLength, sonsSize}
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction
+import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
 
 import scala.util.{Failure, Success, Try}
-import scorex.core.utils.ScorexLogging
-import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.CoinAgeLength
-import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
 
 case class BlockInfo(sons: sonsSize, totalCoinAge: NothingAtStakeCoinBlock.CoinAgeLength)
 

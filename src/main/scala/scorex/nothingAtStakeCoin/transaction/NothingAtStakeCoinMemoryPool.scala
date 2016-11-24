@@ -2,7 +2,7 @@ package scorex.nothingAtStakeCoin.transaction
 
 import java.nio.ByteBuffer
 
-import scorex.core.{NodeViewComponentCompanion, NodeViewModifier}
+import scorex.core.NodeViewComponentCompanion
 import scorex.core.NodeViewModifier.ModifierId
 import scorex.core.transaction.MemoryPool
 

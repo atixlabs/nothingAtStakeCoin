@@ -2,12 +2,13 @@ package scorex.nothingAtStakeCoin
 
 import scorex.core.NodeViewModifier.ModifierTypeId
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
-import scorex.core.transaction.state.PrivateKey25519Companion
 import scorex.core.{NodeViewHolder, NodeViewModifier, NodeViewModifierCompanion}
-import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinSyncInfo
-import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinHistory
+import scorex.nothingAtStakeCoin.block.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion, NothingAtStakeCoinSyncInfo}
+import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion, NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
+import scorex.nothingAtStakeCoin.transaction.state.NothingAtStakeCoinMinimalState
+import scorex.nothingAtStakeCoin.transaction.wallet.NothingAtStakeCoinWallet
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
 
 import scala.util.Random
 

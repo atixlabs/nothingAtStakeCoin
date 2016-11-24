@@ -1,6 +1,5 @@
 package scorex.nothingAtStakeCoin.peercoin
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import akka.actor.{Actor, ActorRef}
 import scorex.core.LocalInterface.LocallyGeneratedModifier
 import scorex.core.NodeViewHolder
@@ -8,14 +7,17 @@ import scorex.core.NodeViewHolder.CurrentView
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.PrivateKey25519
 import scorex.core.utils.{NetworkTime, ScorexLogging}
-import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinHistory
+import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock
+import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory
 import scorex.nothingAtStakeCoin.peercoin.Minter.{MintLoop, StartMinting, StopMiniting}
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction._
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
-import scorex.nothingAtStakeCoin.{NothingAtStakeCoinMinimalState, NothingAtStakeCoinWallet}
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
+import scorex.nothingAtStakeCoin.transaction.state.NothingAtStakeCoinMinimalState
+import scorex.nothingAtStakeCoin.transaction.wallet.NothingAtStakeCoinWallet
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
 

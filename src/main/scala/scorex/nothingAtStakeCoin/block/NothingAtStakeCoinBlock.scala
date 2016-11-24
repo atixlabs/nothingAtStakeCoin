@@ -1,4 +1,4 @@
-package scorex.nothingAtStakeCoin.transaction
+package scorex.nothingAtStakeCoin.block
 
 import com.google.common.primitives.{Ints, Longs}
 import io.circe.Json
@@ -11,7 +11,8 @@ import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
 import scorex.core.{NodeViewModifier, NodeViewModifierCompanion}
 import scorex.crypto.encode.Base58
-import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.{CoinAgeLength, GenerationSignature}
+import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock.{CoinAgeLength, GenerationSignature}
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinNodeNodeViewModifierCompanion, NothingAtStakeCoinTransaction}
 import shapeless.{::, HNil}
 
 import scala.util.{Failure, Success, Try}
@@ -74,7 +75,7 @@ object NothingAtStakeCoinBlock {
             coinAge: CoinAgeLength,
             txs: Seq[NothingAtStakeCoinTransaction]): NothingAtStakeCoinBlock = {
 
-    val unsignedBlock = NothingAtStakeCoinBlock(
+    val unsignedBlock: NothingAtStakeCoinBlock = NothingAtStakeCoinBlock(
       parentId,
       timestamp = 0,
       generationSignature = Array.fill(NothingAtStakeCoinBlock.SignatureLength)(1: Byte),

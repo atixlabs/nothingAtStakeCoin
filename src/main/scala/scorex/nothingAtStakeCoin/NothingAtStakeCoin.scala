@@ -6,14 +6,13 @@ import scorex.core.api.http.{ApiRoute, NodeViewApiRoute, UtilsApiRoute}
 import scorex.core.app.{Application, ApplicationVersion}
 import scorex.core.network.NodeViewSynchronizer
 import scorex.core.network.message.MessageSpec
-import scorex.core.settings.Settings
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.nothingAtStakeCoin.api.PaymentApiRoute
-import scorex.nothingAtStakeCoin.consensus.{NothingAtStakeCoinSyncInfo, NothingAtStakeCoinSyncInfoSpec}
+import scorex.nothingAtStakeCoin.block.{NothingAtStakeCoinBlock, NothingAtStakeCoinSyncInfo, NothingAtStakeCoinSyncInfoSpec}
 import scorex.nothingAtStakeCoin.peercoin.Minter
 import scorex.nothingAtStakeCoin.peercoin.Minter.StartMinting
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinTransaction}
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction
 
 import scala.reflect.runtime.universe._
 

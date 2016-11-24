@@ -1,11 +1,10 @@
-package scorex.nothingAtStakeCoin.consensus
+package scorex.nothingAtStakeCoin.block
 
 import scorex.core.NodeViewModifier
 import scorex.core.NodeViewModifier.{ModifierId, ModifierTypeId}
 import scorex.core.consensus.History._
 import scorex.core.consensus.SyncInfo
 import scorex.core.network.message.SyncInfoSpec
-import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock
 
 import scala.util.Try
 

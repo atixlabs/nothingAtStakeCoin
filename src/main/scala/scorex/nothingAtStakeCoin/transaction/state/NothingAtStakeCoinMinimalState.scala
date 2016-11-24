@@ -1,4 +1,4 @@
-package scorex.nothingAtStakeCoin
+package scorex.nothingAtStakeCoin.transaction.state
 
 import java.nio.ByteBuffer
 
@@ -7,8 +7,9 @@ import scorex.core.block.StateChanges
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.MinimalState.VersionTag
 import scorex.core.transaction.state.authenticated.BoxMinimalState
+import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinTransaction}
 
 import scala.util.{Success, Try}
 

@@ -8,7 +8,8 @@ import scorex.core.NodeViewModifier.ModifierId
 import scorex.core.block.Block.BlockId
 import scorex.core.utils.ScorexLogging
 import scorex.nothingAtStakeCoin.ObjectGenerators
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion}
+import scorex.nothingAtStakeCoin.block.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion}
+import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory
 
 class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
   with GivenWhenThen

@@ -1,4 +1,4 @@
-package scorex.nothingAtStakeCoin
+package scorex.nothingAtStakeCoin.transaction.wallet
 
 import com.google.common.primitives.Bytes
 import scorex.core.NodeViewComponentCompanion
@@ -9,7 +9,8 @@ import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
 import scorex.core.transaction.wallet.{Wallet, WalletBox, WalletTransaction}
 import scorex.crypto.encode.Base64
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinTransaction}
+import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock
+import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction
 
 import scala.util.Try
 

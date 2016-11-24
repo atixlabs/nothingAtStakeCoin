@@ -10,12 +10,14 @@ import org.scalatest.{FeatureSpecLike, GivenWhenThen, Matchers}
 import scorex.core.LocalInterface.LocallyGeneratedModifier
 import scorex.core.NodeViewHolder
 import scorex.core.NodeViewHolder.CurrentView
-import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinHistory
+import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory
 import scorex.nothingAtStakeCoin.peercoin.Minter.StartMinting
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
+import scorex.nothingAtStakeCoin.transaction.state.NothingAtStakeCoinMinimalState
 import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
-import scorex.nothingAtStakeCoin.{NothingAtStakeCoinMinimalState, NothingAtStakeCoinWallet, ObjectGenerators}
+import scorex.nothingAtStakeCoin.ObjectGenerators
+import scorex.nothingAtStakeCoin.transaction.wallet.NothingAtStakeCoinWallet
 
 import scala.concurrent.duration._
 

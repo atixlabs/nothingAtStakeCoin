@@ -2,17 +2,16 @@ package scorex.nothingAtStakeCoin
 
 import io.circe
 import org.scalacheck.{Arbitrary, Gen}
+import scorex.core.NodeViewModifier.{ModifierId, ModifierIdSize}
+import scorex.core.block.Block.Timestamp
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.proof.Signature25519
 import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
 import scorex.crypto.signatures.Curve25519
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinInput, NothingAtStakeCoinOutput}
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinInput, NothingAtStakeCoinOutput, NothingAtStakeCoinTransaction}
-import scorex.core.block.Block.Timestamp
-import scorex.core.NodeViewModifier.{ModifierId, ModifierIdSize}
-import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.CoinAgeLength
-import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlockCompanion
+import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock
+import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock.CoinAgeLength
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinInput, NothingAtStakeCoinOutput, NothingAtStakeCoinTransaction}
 
 trait ObjectGenerators {
 

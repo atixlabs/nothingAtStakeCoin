@@ -15,7 +15,7 @@ import scorex.crypto.encode.Base64
 import scorex.crypto.signatures.Curve25519
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction.{Nonce, Value}
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
-import scorex.nothingAtStakeCoin.{NothingAtStakeCoinMinimalState, NothingAtStakeCoinWallet}
+import scorex.nothingAtStakeCoin.transaction.state.NothingAtStakeCoinMinimalState
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
