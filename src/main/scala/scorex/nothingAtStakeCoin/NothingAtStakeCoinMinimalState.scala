@@ -1,19 +1,21 @@
 package scorex.nothingAtStakeCoin
 
+import java.nio.ByteBuffer
+
 import scorex.core.NodeViewComponentCompanion
 import scorex.core.block.StateChanges
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.MinimalState.VersionTag
 import scorex.core.transaction.state.authenticated.BoxMinimalState
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinTransaction}
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinTransaction}
 
 import scala.util.{Success, Try}
 
 case class NothingAtStakeCoinMinimalState(
                                            override val version: VersionTag,
                                            history: Map[VersionTag, NothingAtStakeCoinMinimalState] = Map(),
-                                           boxes: Map[Array[Byte], PublicKey25519NoncedBox]
+                                           boxes: Map[ByteBuffer, PublicKey25519NoncedBox]
                                          )
   extends BoxMinimalState[
     PublicKey25519Proposition,
@@ -22,9 +24,10 @@ case class NothingAtStakeCoinMinimalState(
     NothingAtStakeCoinBlock,
     NothingAtStakeCoinMinimalState
     ] {
-  override def semanticValidity(tx: NothingAtStakeCoinTransaction): Try[Unit] = ???
 
-  override def closedBox(boxId: Array[Byte]): Option[PublicKey25519NoncedBox] = boxes.get(boxId)
+  override def semanticValidity(tx: NothingAtStakeCoinTransaction): Try[Unit] = Success(Unit)
+
+  override def closedBox(boxId: Array[Byte]): Option[PublicKey25519NoncedBox] = boxes.get(ByteBuffer.wrap(boxId))
 
   override def boxesOf(proposition: PublicKey25519Proposition): Seq[PublicKey25519NoncedBox] =
     boxes.values.filter(p => p.proposition.address == proposition.address).toSeq
@@ -44,8 +47,8 @@ case class NothingAtStakeCoinMinimalState(
   }
 
   override def applyChanges(changes: StateChanges[PublicKey25519Proposition, PublicKey25519NoncedBox], newVersion: VersionTag): Try[NothingAtStakeCoinMinimalState] = {
-    val afterRemoval = changes.boxIdsToRemove.foldLeft(boxes) { case (newBoxes, idToRemove) => newBoxes - idToRemove }
-    val afterAppending = changes.toAppend.foldLeft(afterRemoval) { case (newBoxes, toAdd) => newBoxes + (toAdd.id -> toAdd) }
+    val afterRemoval = changes.boxIdsToRemove.foldLeft(boxes) { case (newBoxes, idToRemove) => newBoxes - ByteBuffer.wrap(idToRemove) }
+    val afterAppending = changes.toAppend.foldLeft(afterRemoval) { case (newBoxes, toAdd) => newBoxes + (ByteBuffer.wrap(toAdd.id) -> toAdd) }
     Success(NothingAtStakeCoinMinimalState(newVersion, history + (this.version -> this), afterAppending))
   }
 
@@ -54,6 +57,7 @@ case class NothingAtStakeCoinMinimalState(
   override type NVCT = this.type
 
   override def companion: NodeViewComponentCompanion = ???
+
 }
 
 object NothingAtStakeCoinMinimalState {

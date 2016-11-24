@@ -1,5 +1,6 @@
 package scorex.nothingAtStakeCoin
 
+import io.circe
 import org.scalacheck.{Arbitrary, Gen}
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.proof.Signature25519
@@ -11,6 +12,7 @@ import scorex.core.block.Block.Timestamp
 import scorex.core.NodeViewModifier.{ModifierId, ModifierIdSize}
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlock.CoinAgeLength
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinBlockCompanion
+import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 
 trait ObjectGenerators {
 
@@ -31,7 +33,7 @@ trait ObjectGenerators {
     Gen.listOf(keyGenerator.map(keyPair => NothingAtStakeCoinOutput(keyPair._2, Arbitrary.arbitrary[Long].sample.get)))
       .map(_.toIndexedSeq)
 
-  lazy val signatureGenerator : Gen[Signature25519] = genBytesList(Signature25519.SignatureSize).map(b => Signature25519(b))
+  lazy val signatureGenerator: Gen[Signature25519] = genBytesList(Signature25519.SignatureSize).map(b => Signature25519(b))
 
   lazy val signaturesGenerator: Gen[IndexedSeq[Signature25519]] =
     Gen.listOf(signatureGenerator).map(_.toIndexedSeq)
@@ -50,26 +52,28 @@ trait ObjectGenerators {
     timestamp = timestamp
   )
 
+  lazy val settings: NothingAtStakeCoinSettings = new NothingAtStakeCoinSettings {
+    override val settingsJSON: Map[String, circe.Json] = settingsFromFile("test-settings.json")
+  }
+
   lazy val nothingAtStakeCoinTransactionSeqGenerator: Gen[Seq[NothingAtStakeCoinTransaction]] =
-    Gen.listOf(nothingAtSakeCoinTransactionGenerator).map(_.toSeq)
+    Gen.listOfN(settings.transactionsPerBlock, nothingAtSakeCoinTransactionGenerator).map(_.toSeq)
 
   lazy val nothingAtSakeCoinBlockGenerator: Gen[NothingAtStakeCoinBlock] = for {
     parentId: ModifierId <- genBytesList(ModifierIdSize)
     timestamp: Timestamp <- Arbitrary.arbitrary[Long]
     coinAge: CoinAgeLength <- Arbitrary.arbitrary[Long]
-    generationSignature <- signatureGenerator
-    generator <- keyGenerator.map(_._2)
+    key <- keyGenerator
     txs <- nothingAtStakeCoinTransactionSeqGenerator
-  } yield new NothingAtStakeCoinBlock(
+  } yield NothingAtStakeCoinBlock(
     parentId = parentId,
-    generationSignature = generationSignature.bytes,
     timestamp = timestamp,
-    generator = generator,
+    generatorKeys = key._1,
     coinAge = coinAge,
     txs = txs.toSet.toSeq
   )
 
-  def genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(size : Int) : Gen[Seq[NothingAtStakeCoinBlock]] = {
+  def genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(size: Int): Gen[Seq[NothingAtStakeCoinBlock]] = {
     Gen.listOfN(size, nothingAtSakeCoinBlockGenerator).map(_.toSeq)
   }
 

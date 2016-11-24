@@ -10,6 +10,8 @@ import scorex.core.settings.Settings
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.nothingAtStakeCoin.api.PaymentApiRoute
 import scorex.nothingAtStakeCoin.consensus.{NothingAtStakeCoinSyncInfo, NothingAtStakeCoinSyncInfoSpec}
+import scorex.nothingAtStakeCoin.peercoin.Minter
+import scorex.nothingAtStakeCoin.peercoin.Minter.StartMinting
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinBlock, NothingAtStakeCoinTransaction}
 
@@ -33,7 +35,6 @@ class NothingAtStakeCoin(settingsFilename: String) extends Application {
 
   override val localInterface: ActorRef = actorSystem.actorOf(Props(classOf[NothingAtStakeCoinLocalInterface], nodeViewHolderRef))
 
-
   override val apiTypes: Seq[Type] = Seq(typeOf[UtilsApiRoute], typeOf[NodeViewApiRoute[P, TX]], typeOf[PaymentApiRoute])
 
   override protected lazy val additionalMessageSpecs: Seq[MessageSpec[_]] = Seq(NothingAtStakeCoinSyncInfoSpec)
@@ -47,6 +48,9 @@ class NothingAtStakeCoin(settingsFilename: String) extends Application {
     NodeViewApiRoute[P, TX](settings, nodeViewHolderRef),
     PaymentApiRoute(settings, nodeViewHolderRef)
   )
+
+  val minter: ActorRef = actorSystem.actorOf(Props(classOf[Minter], settings, nodeViewHolderRef))
+  minter ! StartMinting
 }
 
 object NothingAtStakeCoin extends App {

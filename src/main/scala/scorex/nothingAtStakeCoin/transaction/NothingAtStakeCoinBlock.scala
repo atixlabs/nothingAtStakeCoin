@@ -16,18 +16,18 @@ import shapeless.{::, HNil}
 
 import scala.util.{Failure, Success, Try}
 
-case class NothingAtStakeCoinBlock( override val parentId:ModifierId,
-                                    override val timestamp: Timestamp,
-                                    generationSignature: GenerationSignature,
-                                    generator: PublicKey25519Proposition,
-                                    coinAge : CoinAgeLength,
-                                    txs: Seq[NothingAtStakeCoinTransaction]
+case class NothingAtStakeCoinBlock(override val parentId: ModifierId,
+                                   override val timestamp: Timestamp,
+                                   generationSignature: GenerationSignature,
+                                   generator: PublicKey25519Proposition,
+                                   coinAge: CoinAgeLength,
+                                   txs: Seq[NothingAtStakeCoinTransaction]
                                   )
   extends Block[PublicKey25519Proposition, NothingAtStakeCoinTransaction] {
 
   override type BlockFields = ModifierId :: Timestamp :: GenerationSignature :: PublicKey25519Proposition ::
-                              Version :: NothingAtStakeCoinBlock.CoinAgeLength ::
-                              Seq[NothingAtStakeCoinTransaction] ::HNil
+    Version :: NothingAtStakeCoinBlock.CoinAgeLength ::
+    Seq[NothingAtStakeCoinTransaction] :: HNil
 
   override type M = NothingAtStakeCoinBlock
 
@@ -68,15 +68,34 @@ object NothingAtStakeCoinBlock {
 
   lazy val GenesisBlockId: ModifierId = Array.fill(NodeViewModifier.ModifierIdSize)(1: Byte)
 
+  def apply(parentId: ModifierId,
+            timestamp: Timestamp,
+            generatorKeys: PrivateKey25519,
+            coinAge: CoinAgeLength,
+            txs: Seq[NothingAtStakeCoinTransaction]): NothingAtStakeCoinBlock = {
+
+    val unsignedBlock = NothingAtStakeCoinBlock(
+      parentId,
+      timestamp = 0,
+      generationSignature = Array.fill(NothingAtStakeCoinBlock.SignatureLength)(1: Byte),
+      generator = generatorKeys.publicImage,
+      Long.MaxValue,
+      txs = txs
+    )
+
+    val generationSignature = PrivateKey25519Companion.sign(generatorKeys, unsignedBlock.companion.messageToSign(unsignedBlock))
+
+    unsignedBlock.copy(generationSignature = generationSignature.signature)
+  }
 }
 
 object NothingAtStakeCoinBlockCompanion extends NodeViewModifierCompanion[NothingAtStakeCoinBlock] {
   def messageToSign(block: NothingAtStakeCoinBlock): Array[Byte] = {
     block.parentId ++
-    Longs.toByteArray(block.timestamp) ++
-    Array(block.version) ++
-    Longs.toByteArray(block.coinAge) ++
-    block.generator.pubKeyBytes ++{
+      Longs.toByteArray(block.timestamp) ++
+      Array(block.version) ++
+      Longs.toByteArray(block.coinAge) ++
+      block.generator.pubKeyBytes ++ {
       val cntTxs = Ints.toByteArray(block.txs.size)
       block.txs.foldLeft(cntTxs) { case (bytes, tx) => bytes ++ NothingAtStakeCoinNodeNodeViewModifierCompanion.bytes(tx) }
     }
@@ -97,18 +116,18 @@ object NothingAtStakeCoinBlockCompanion extends NodeViewModifierCompanion[Nothin
     val s0 = Block.BlockIdLength + 17
     val generationSignature = bytes.slice(s0, s0 + NothingAtStakeCoinBlock.SignatureLength)
     val generator = PublicKey25519Proposition(bytes.slice(s0 + NothingAtStakeCoinBlock.SignatureLength,
-                                                          s0 + NothingAtStakeCoinBlock.SignatureLength + 32))
+      s0 + NothingAtStakeCoinBlock.SignatureLength + 32))
     val s1 = s0 + NothingAtStakeCoinBlock.SignatureLength + 32
     val cntTxs = Ints.fromByteArray(bytes.slice(s1, s1 + 4))
-    val txsBytes = bytes.slice(s1 + 4, s1 + 4 + bytes.length-1)
+    val txsBytes = bytes.slice(s1 + 4, s1 + 4 + bytes.length - 1)
     val optionalTxs = NothingAtStakeCoinNodeNodeViewModifierCompanion.parseTransactionsArray(cntTxs, txsBytes)
-    optionalTxs match{
+    optionalTxs match {
       case Success(txs) => NothingAtStakeCoinBlock(parentId, timestamp, generationSignature, generator, coinAge, txs)
       case Failure(e) => throw e
     }
   }
 
-  def signBlock(privKey: PrivateKey25519, unsignedBlock: NothingAtStakeCoinBlock) : NothingAtStakeCoinBlock = {
+  def signBlock(privKey: PrivateKey25519, unsignedBlock: NothingAtStakeCoinBlock): NothingAtStakeCoinBlock = {
     val blockSignature = PrivateKey25519Companion.sign(privKey, unsignedBlock.companion.messageToSign(unsignedBlock))
     unsignedBlock.copy(generationSignature = blockSignature.signature)
   }

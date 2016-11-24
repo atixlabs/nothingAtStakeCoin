@@ -13,11 +13,12 @@ import scorex.core.transaction.proof.Signature25519
 import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
 import scorex.crypto.encode.Base64
 import scorex.crypto.signatures.Curve25519
-import scorex.nothingAtStakeCoin.NothingAtStakeCoinWallet
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction.{Nonce, Value}
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
+import scorex.nothingAtStakeCoin.{NothingAtStakeCoinMinimalState, NothingAtStakeCoinWallet}
 
-import scala.util.{Failure, Random, Success, Try}
+import scala.annotation.tailrec
+import scala.util.{Failure, Success, Try}
 
 case class NothingAtStakeCoinInput(proposition: PublicKey25519Proposition, nonce: Nonce) {
   lazy val id: Array[Byte] = PublicKeyNoncedBox.idFromBox(proposition, nonce)
@@ -135,26 +136,71 @@ object NothingAtStakeCoinNodeNodeViewModifierCompanion extends NodeViewModifierC
       }._1
     reverseTxs.reverse
   }
+
+  def createTransaction(state: NothingAtStakeCoinMinimalState,
+                        fromPk: PrivateKey25519,
+                        from: String,
+                        to: IndexedSeq[String],
+                        amount: IndexedSeq[Long],
+                        fee: Long,
+                        timestamp: Long): Try[NothingAtStakeCoinTransaction] = Try {
+
+    val totalAmountToSend = amount.sum + fee
+
+    val sender: PublicKey25519Proposition = PublicKey25519Proposition.validPubKey(from) match {
+      case Success(pk: PublicKey25519Proposition) => pk
+      case Failure(err) => throw err
+    }
+
+    val toPropositions: IndexedSeq[(PublicKey25519Proposition, Value)] = to.zip(amount).map {
+      case (address: String, amount: Long) => (PublicKey25519Proposition.validPubKey(address).get, amount)
+    }
+
+    val unspentsToUse: (Long, Seq[PublicKey25519NoncedBox]) = findUnspentsToPay(totalAmountToSend, state.boxesOf(sender), 0, Seq())
+
+    val propositions = unspentsToUse match {
+      case (unspentsAmount, boxes) if unspentsAmount > totalAmountToSend => toPropositions :+ (PublicKey25519Proposition.validPubKey(from).get, unspentsToUse._1 - totalAmountToSend)
+      case (unspentsAmount, boxes) if unspentsAmount == totalAmountToSend => toPropositions
+      case (unspentsAmount, boxes) if unspentsAmount < totalAmountToSend => throw new Exception("Not Enough funds to spend")
+    }
+
+    NothingAtStakeCoinTransaction(
+      fromPk,
+      unspentsToUse._2.map(_.nonce).toIndexedSeq,
+      propositions.to,
+      fee,
+      timestamp
+    )
+  }
+
+  @tailrec
+  private def findUnspentsToPay(totalAmountToSend: Value, boxes: Seq[PublicKey25519NoncedBox], acum: Long, boxesToUse: Seq[PublicKey25519NoncedBox]): (Long, Seq[PublicKey25519NoncedBox]) = {
+    acum match {
+      case _ if acum >= totalAmountToSend || boxes.isEmpty => (acum, boxesToUse)
+      case _ if acum < totalAmountToSend => findUnspentsToPay(totalAmountToSend, boxes.tail, acum + boxes.head.value, boxesToUse :+ boxes.head)
+    }
+  }
 }
 
 object NothingAtStakeCoinTransaction {
   type Value = Long
   type Nonce = Long
 
-  def apply(from: IndexedSeq[(PrivateKey25519, Nonce)],
+  def apply(fromPk: PrivateKey25519,
+            from: IndexedSeq[Nonce],
             to: IndexedSeq[(PublicKey25519Proposition, Value)],
             fee: Long,
             timestamp: Long): NothingAtStakeCoinTransaction = {
 
     val withoutSignature: NothingAtStakeCoinTransaction = new NothingAtStakeCoinTransaction(
-      from = from.map { case (k: PrivateKey25519, n: Nonce) => NothingAtStakeCoinInput(k.publicImage, n) },
+      from = from.map { case (n: Nonce) => NothingAtStakeCoinInput(fromPk.publicImage, n) },
       to = to.map { case (p: PublicKey25519Proposition, n: Nonce) => NothingAtStakeCoinOutput(p, n) },
-      signatures = from.map { case (k: PrivateKey25519, _) => PrivateKey25519Companion.sign(k, Array.emptyByteArray) },
+      signatures = from.map { _ => PrivateKey25519Companion.sign(fromPk, Array.emptyByteArray) },
       fee = fee,
       timestamp = timestamp
     )
 
-    val signatures = from.map { case (k: PrivateKey25519, _) => PrivateKey25519Companion.sign(k, withoutSignature.messageToSign) }
+    val signatures = from.map { _ => PrivateKey25519Companion.sign(fromPk, withoutSignature.messageToSign) }
 
     NothingAtStakeCoinTransaction(
       withoutSignature.from,
@@ -163,18 +209,6 @@ object NothingAtStakeCoinTransaction {
       fee,
       timestamp
     )
-  }
-
-  def apply(wallet: NothingAtStakeCoinWallet, from: IndexedSeq[String], to: IndexedSeq[String], amount: IndexedSeq[Long], fee: Long, time: Long): NothingAtStakeCoinTransaction = {
-    val senders = from.map((address: String) => PublicKey25519Proposition.validPubKey(address)).map {
-      case Success(pk: PublicKey25519Proposition) => (wallet.secretByPublicImage(pk).get, Random.nextLong())
-      case Failure(err) => throw err
-    }
-    val receivers = to.zip(amount).map {
-      case (address: String, amount: Long) => (PublicKey25519Proposition.validPubKey(address).get, amount)
-    }
-
-    NothingAtStakeCoinTransaction(senders, receivers, fee, time)
   }
 
   def generateNonce(output: NothingAtStakeCoinOutput, inputs: Seq[NothingAtStakeCoinInput], timestamp: Long, index: Int): Long =
