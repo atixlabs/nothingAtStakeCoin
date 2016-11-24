@@ -68,14 +68,13 @@ object NothingAtStakeCoinBlock {
 
   lazy val GenesisBlockId: ModifierId = Array.fill(NodeViewModifier.ModifierIdSize)(1: Byte)
 
-  def apply(
-             parentId: ModifierId,
-             timestamp: Timestamp,
-               generatorKeys: PrivateKey25519,
-             coinAge: CoinAgeLength,
-             txs: Seq[NothingAtStakeCoinTransaction]): NothingAtStakeCoinBlock = {
+  def apply(parentId: ModifierId,
+            timestamp: Timestamp,
+            generatorKeys: PrivateKey25519,
+            coinAge: CoinAgeLength,
+            txs: Seq[NothingAtStakeCoinTransaction]): NothingAtStakeCoinBlock = {
 
-    val unsignedGenesisBlock = NothingAtStakeCoinBlock(
+    val unsignedBlock = NothingAtStakeCoinBlock(
       parentId,
       timestamp = 0,
       generationSignature = Array.fill(NothingAtStakeCoinBlock.SignatureLength)(1: Byte),
@@ -84,9 +83,9 @@ object NothingAtStakeCoinBlock {
       txs = txs
     )
 
-    val genesisBlockSignature = PrivateKey25519Companion.sign(generatorKeys, unsignedGenesisBlock.companion.messageToSign(unsignedGenesisBlock))
+    val generationSignature = PrivateKey25519Companion.sign(generatorKeys, unsignedBlock.companion.messageToSign(unsignedBlock))
 
-    unsignedGenesisBlock.copy(generationSignature = genesisBlockSignature.signature)
+    unsignedBlock.copy(generationSignature = generationSignature.signature)
   }
 }
 
