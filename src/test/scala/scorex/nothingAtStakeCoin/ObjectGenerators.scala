@@ -58,6 +58,8 @@ trait ObjectGenerators {
   lazy val nothingAtStakeCoinTransactionSeqGenerator: Gen[Seq[NothingAtStakeCoinTransaction]] =
     Gen.listOfN(settings.transactionsPerBlock, nothingAtSakeCoinTransactionGenerator).map(_.toSeq)
 
+  lazy val emptyTx : NothingAtStakeCoinTransaction = NothingAtStakeCoinTransaction(IndexedSeq(), IndexedSeq(), IndexedSeq(), 0, 0)
+
   lazy val nothingAtSakeCoinBlockGenerator: Gen[NothingAtStakeCoinBlock] = for {
     parentId: ModifierId <- genBytesList(ModifierIdSize)
     timestamp: Timestamp <- Arbitrary.arbitrary[Long]
@@ -69,7 +71,7 @@ trait ObjectGenerators {
     timestamp = timestamp,
     generatorKeys = key._1,
     coinAge = coinAge,
-    txs = txs.toSet.toSeq
+    txs = emptyTx +: txs
   )
 
   def genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(size: Int): Gen[Seq[NothingAtStakeCoinBlock]] = {
