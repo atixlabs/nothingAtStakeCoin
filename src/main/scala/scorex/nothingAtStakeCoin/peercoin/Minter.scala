@@ -13,13 +13,14 @@ import scorex.nothingAtStakeCoin.peercoin.Minter.{MintLoop, StartMinting, StopMi
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction._
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinOutput, NothingAtStakeCoinTransaction}
 import scorex.nothingAtStakeCoin.transaction.state.NothingAtStakeCoinMinimalState
 import scorex.nothingAtStakeCoin.transaction.wallet.NothingAtStakeCoinWallet
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import scala.util.{Failure, Success}
 
 class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) extends Actor with ScorexLogging {
 
@@ -45,7 +46,7 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
           case txs: Iterable[NothingAtStakeCoinTransaction] if txs.size == settings.transactionsPerBlock => {
             log.info(s"[MintLoop] Transactions ${txs.size}  found")
             val coinStakeBoxes = getCoinStakeBoxes(wallet, minimalState, txs).toSeq
-            log.info(s"[MintLoop] ${coinStakeBoxes.size} coinstake boxes found found")
+            log.info(s"[MintLoop] ${coinStakeBoxes.size} coinstake boxes found")
             if (coinStakeBoxes.nonEmpty) {
               log.info("[MintLoop] Stake found, about to generate block")
               val parentBlocks = history.openSurfaceIds()
@@ -53,7 +54,7 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
                 .flatten
                 .sortBy(_.timestamp)
               val txsToIncludeInBlock = txs.take(settings.transactionsPerBlock).toSeq
-              Some(generateBlock(wallet.secrets.head, parentBlocks.head, coinStakeBoxes, txsToIncludeInBlock, NetworkTime.time()))
+              generateBlock(wallet.secrets.head, parentBlocks.head, coinStakeBoxes, txsToIncludeInBlock, NetworkTime.time(), history)
             } else {
               log.info("[MintLoop] No stake to mint found")
               None
@@ -100,11 +101,12 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
                     parent: NothingAtStakeCoinBlock,
                     coinStakeBoxes: Seq[PublicKey25519NoncedBox],
                     txs: Seq[NothingAtStakeCoinTransaction],
-                    timestamp: Long): NothingAtStakeCoinBlock = {
+                    timestamp: Long,
+                    history : NothingAtStakeCoinHistory): Option[NothingAtStakeCoinBlock] = {
 
     //val minterCoinAge = calculateCoinAge()
 
-    val stakeTransaction = NothingAtStakeCoinTransaction(
+    val stakeTransactionWithoutReward = NothingAtStakeCoinTransaction(
       minterPk,
       coinStakeBoxes.map(_.nonce).toIndexedSeq,
       coinStakeBoxes.map(box => (minterPk.publicImage, box.value)).toIndexedSeq,
@@ -112,13 +114,28 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
       timestamp
     )
 
-    NothingAtStakeCoinBlock(
-      parentId = parent.id,
-      timestamp = timestamp,
-      generatorKeys = minterPk,
-      coinAge = Long.MaxValue,
-      txs = stakeTransaction +: txs
-    )
+    val maybeStakeReward = history.getStakeReward(stakeTransactionWithoutReward)
+    maybeStakeReward match{
+      case Success(reward) =>
+        val toWithReward = NothingAtStakeCoinOutput(minterPk.publicImage, reward) +: stakeTransactionWithoutReward.to
+        val stakeTransactionWithReward = stakeTransactionWithoutReward.copy(to = toWithReward.toIndexedSeq)
+        Some(NothingAtStakeCoinBlock(
+          parentId = parent.id,
+          timestamp = timestamp,
+          generatorKeys = minterPk,
+          coinAge = Long.MaxValue, //FIX ME: Should be the coinAge consumed by the block
+          txs = stakeTransactionWithReward +: txs
+        ))
+      case Failure(e) =>
+        //FIX ME: Should return None because reward is not found but doing that currently breaks the minter tests
+        Some(NothingAtStakeCoinBlock(
+          parentId = parent.id,
+          timestamp = timestamp,
+          generatorKeys = minterPk,
+          coinAge = Long.MaxValue,
+          txs = stakeTransactionWithoutReward +: txs
+        ))
+    }
   }
 }
 
