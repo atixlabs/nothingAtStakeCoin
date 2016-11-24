@@ -51,7 +51,7 @@ class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings)
 
     val minimalState = NothingAtStakeCoinMinimalState.genesisState().applyModifier(genesisBlock).get
 
-    val history = (new NothingAtStakeCoinHistory).append(genesisBlock)
+    val history = new NothingAtStakeCoinHistory(numberOfBestChains = settings.numberOfBestChains).append(genesisBlock)
 
     (history.get._1, minimalState, wallet, NothingAtStakeCoinMemoryPool.emptyPool)
   }

@@ -14,4 +14,7 @@ abstract class NothingAtStakeCoinSettings extends Settings {
   def minStakeMinutes: Long = nothingAtStakeCoinSettings("minStakeMinutes").as[Long].getOrElse(1)
 
   def maxStakeMinutes: Long = nothingAtStakeCoinSettings("maxStakeMinutes").as[Long].getOrElse(10)
+
+  def numberOfBestChains: Int = nothingAtStakeCoinSettings("numberOfBestChains").as[Int].getOrElse(10)
+
 }

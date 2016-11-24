@@ -71,7 +71,7 @@ class MinterSpec extends TestKit(ActorSystem("MinterSpec"))
 
       When("It receives a single tx")
       val block = nothingAtSakeCoinBlockGenerator.sample.get
-      val history = new NothingAtStakeCoinHistory(Map(
+      val history = new NothingAtStakeCoinHistory(blocks = Map(
         ByteBuffer.wrap(block.id) -> block
       ))
       val tx = nothingAtSakeCoinTransactionGenerator.sample.get

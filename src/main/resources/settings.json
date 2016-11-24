@@ -26,6 +26,7 @@
     "genesisTransactions": 10,
     "genesisTransactionAmount": 1000000,
     "minStakeMinutes": 1,
-    "maxStakeMinutes": 10
+    "maxStakeMinutes": 10,
+    "numberOfBestChains": 10
   }
 }
