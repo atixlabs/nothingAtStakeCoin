@@ -77,7 +77,7 @@ object NothingAtStakeCoinBlock {
 
     val unsignedBlock: NothingAtStakeCoinBlock = NothingAtStakeCoinBlock(
       parentId,
-      timestamp = 0,
+      timestamp,
       generationSignature = Array.fill(NothingAtStakeCoinBlock.SignatureLength)(1: Byte),
       generator = generatorKeys.publicImage,
       Long.MaxValue,
