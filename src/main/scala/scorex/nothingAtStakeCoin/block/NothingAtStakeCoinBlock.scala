@@ -80,7 +80,7 @@ object NothingAtStakeCoinBlock {
       timestamp,
       generationSignature = Array.fill(NothingAtStakeCoinBlock.SignatureLength)(1: Byte),
       generator = generatorKeys.publicImage,
-      Long.MaxValue,
+      coinAge,
       txs = txs
     )
 
