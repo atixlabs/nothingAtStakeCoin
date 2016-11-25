@@ -41,7 +41,7 @@ trait ObjectGenerators {
     outputs <- outputsGenerator
     inputs <- inputsGenerator
     signatures <- signaturesGenerator
-    timestamp: Long <- Arbitrary.arbitrary[Long]
+    timestamp: Long <- Gen.choose(0: Long, Long.MaxValue)
     fee: Long <- Arbitrary.arbitrary[Long]
   } yield new NothingAtStakeCoinTransaction(
     from = inputs,
@@ -62,16 +62,18 @@ trait ObjectGenerators {
 
   lazy val nothingAtSakeCoinBlockGenerator: Gen[NothingAtStakeCoinBlock] = for {
     parentId: ModifierId <- genBytesList(ModifierIdSize)
-    timestamp: Timestamp <- Arbitrary.arbitrary[Long]
-    coinAge: CoinAgeLength <- Arbitrary.arbitrary[Long]
+    coinAge: CoinAgeLength <- Gen.choose(0: Long, Long.MaxValue-1)
     key <- keyGenerator
-    txs <- nothingAtStakeCoinTransactionSeqGenerator
+    possibleTxs <- nothingAtStakeCoinTransactionSeqGenerator
+    txs = possibleTxs.map(tx => if(tx.timestamp==Long.MaxValue) tx.copy(timestamp = Long.MaxValue-1) else tx)
+    coinStakeTx = emptyTx
+    timestamp : Timestamp = (coinStakeTx +: txs).map(_.timestamp).max + 1
   } yield NothingAtStakeCoinBlock(
     parentId = parentId,
     timestamp = timestamp,
     generatorKeys = key._1,
     coinAge = coinAge,
-    txs = emptyTx +: txs
+    txs = coinStakeTx +: txs.distinct
   )
 
   def genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(size: Int): Gen[Seq[NothingAtStakeCoinBlock]] = {
