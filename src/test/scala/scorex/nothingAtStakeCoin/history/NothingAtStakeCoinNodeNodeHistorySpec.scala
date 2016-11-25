@@ -8,6 +8,7 @@ import scorex.core.NodeViewModifier.ModifierId
 import scorex.core.block.Block.BlockId
 import scorex.core.utils.ScorexLogging
 import scorex.nothingAtStakeCoin.ObjectGenerators
+import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock.CoinAgeLength
 import scorex.nothingAtStakeCoin.block.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion}
 import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory
 
@@ -24,15 +25,9 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
     assert(history.blocks.get(byteBufferBlockId).isDefined)
     val blockInHistory = history.blocks(byteBufferBlockId)
     blockInHistory shouldEqual block
-    assert(history.blocksInfo.get(byteBufferBlockId).isDefined)
-    val blockInfoInHistory = history.blocksInfo(byteBufferBlockId)
-    assert(blockInfoInHistory.sons == 0)
-    assert((history.blocks.size == 1 && history.blocksInfo.get(byteBufferBlockId).isDefined &&
-      history.blocksInfo(byteBufferBlockId).totalCoinAge == block.coinAge) ||
-      (history.blocksInfo.get(blockIdToByteBuffer(block.parentId)).isDefined &&
-        history.blocksInfo.get(byteBufferBlockId).isDefined &&
-        history.blocksInfo(blockIdToByteBuffer(block.parentId)).totalCoinAge + block.coinAge ==
-          history.blocksInfo(byteBufferBlockId).totalCoinAge))
+    assert(history.blocksSons.get(byteBufferBlockId).isDefined)
+    val blockSons = history.blocksSons(byteBufferBlockId)
+    assert(blockSons == 0)
   }
 
   def blockIdToByteBuffer(id: BlockId) = ByteBuffer.wrap(id)
@@ -59,12 +54,8 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       Then("there is only one block in history")
       assert(!historyWithOneBlock.isEmpty)
       assert(historyWithOneBlock.blocks.size == 1)
-      assert(historyWithOneBlock.blocksInfo.size == 1)
+      assert(historyWithOneBlock.blocksSons.size == 1)
       assert(historyWithOneBlock.bestNChains.size == 1)
-      val blockInfoInHistory = historyWithOneBlock.blocksInfo(blockIdToByteBuffer(block.id))
-
-      Then("the block has the correct totalCoinAge")
-      assert(blockInfoInHistory.totalCoinAge == block.coinAge)
 
       Then("the block is the best chain")
       assert(historyWithOneBlock.bestNChains.size == 1)
@@ -92,7 +83,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
           newBlockCorrectlyInHistory(newHistory, signedBlock)
 
           Then("its parent has now 1 son")
-          assert(prevHistory.isEmpty || newHistory.blocksInfo(blockIdToByteBuffer(prevBlockId)).sons == 1)
+          assert(prevHistory.isEmpty || newHistory.blocksSons(blockIdToByteBuffer(prevBlockId)) == 1)
 
           Then("the new block is the only one in history.bestNChains")
           assert(newHistory.bestNChains.size == 1)
@@ -129,8 +120,8 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
           assert(newHistory.bestNChains.contains(blockIdToByteBuffer(signedBlock.id)))
 
           Then("genesisBlock has one more son")
-          assert(newHistory.blocksInfo(blockIdToByteBuffer(genesisBlock.id)).sons ==
-            prevHistory.blocksInfo(blockIdToByteBuffer(genesisBlock.id)).sons + 1)
+          assert(newHistory.blocksSons(blockIdToByteBuffer(genesisBlock.id)) ==
+            prevHistory.blocksSons(blockIdToByteBuffer(genesisBlock.id)) + 1)
           newHistory
       }
     }
@@ -153,8 +144,8 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       }
 
       When("adding an extra block that causes the removal of a chain from history")
-      val chainWithBestTotalCoinAge: ByteBuffer = historyWithNChains.bestNChains.maxBy(blockId => historyWithNChains.blocksInfo.get(blockId).map(_.totalCoinAge).get)
-      val blockCoinAge = historyWithNChains.blocksInfo(chainWithBestTotalCoinAge).totalCoinAge + 1
+      val bestTotalCoinAge: CoinAgeLength = historyWithNChains.bestNChains.map(blockId => historyWithNChains.blocks(blockId).coinAge).max
+      val blockCoinAge = bestTotalCoinAge + 1
 
       val keyPair = keyGenerator.sample.get
       val signedBlock = NothingAtStakeCoinBlockCompanion.signBlock(keyPair._1,
@@ -177,13 +168,11 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       val idBlockRemoved = diffPrevWithNew.head
       assert(historyWithBlockRemoved.blocks.get(idBlockAdded).isDefined)
       assert(historyWithBlockRemoved.blocks.get(idBlockRemoved).isEmpty)
-      assert(historyWithBlockRemoved.blocksInfo.get(idBlockAdded).isDefined)
-      assert(historyWithBlockRemoved.blocksInfo.get(idBlockRemoved).isEmpty)
-      assert(historyWithBlockRemoved.blocksInfo(idBlockAdded).totalCoinAge >=
-        historyWithNChains.blocksInfo(idBlockRemoved).totalCoinAge)
+      assert(historyWithBlockRemoved.blocksSons.get(idBlockAdded).isDefined)
+      assert(historyWithBlockRemoved.blocksSons.get(idBlockRemoved).isEmpty)
 
       Then("genesisBlock has N sons")
-      assert(historyWithBlockRemoved.blocksInfo(blockIdToByteBuffer(genesisBlock.id)).sons == numberOfBestChains)
+      assert(historyWithBlockRemoved.blocksSons(blockIdToByteBuffer(genesisBlock.id)) == numberOfBestChains)
     }
     scenario("BlockChain forks and N chains limit is surpassed with recursive removal") {
       Given("a history with N chains of length 2 and genesys block where fork ocurred")
