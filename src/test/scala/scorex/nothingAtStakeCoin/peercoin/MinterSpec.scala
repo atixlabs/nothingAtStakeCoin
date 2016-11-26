@@ -70,7 +70,7 @@ class MinterSpec extends TestKit(ActorSystem("MinterSpec"))
       val minterRef = TestActorRef(Props(classOf[Minter], fakeSettings, probe.ref))
 
       When("It receives a single tx")
-      val block = nothingAtSakeCoinBlockGenerator.sample.get
+      val block = nothingAtSakeCoinBlockGenerator().sample.get
       val history = new NothingAtStakeCoinHistory(blocks = Map(
         ByteBuffer.wrap(block.id) -> block
       ))
@@ -98,7 +98,7 @@ class MinterSpec extends TestKit(ActorSystem("MinterSpec"))
 
       When("It receives empty history as CurrentView after starting")
       val wallet = NothingAtStakeCoinWallet(fakeSettings)
-      val genesisBlock = nothingAtSakeCoinBlockGenerator.sample.get
+      val genesisBlock = nothingAtSakeCoinBlockGenerator().sample.get
       val history = (new NothingAtStakeCoinHistory).append(genesisBlock).get._1
       val tx1 = NothingAtStakeCoinTransaction(
         wallet.secrets.head,
@@ -151,7 +151,7 @@ class MinterSpec extends TestKit(ActorSystem("MinterSpec"))
 
       When("It receives empty history as CurrentView after starting")
       val wallet = NothingAtStakeCoinWallet(fakeSettings)
-      val genesisBlock = nothingAtSakeCoinBlockGenerator.sample.get
+      val genesisBlock = nothingAtSakeCoinBlockGenerator().sample.get
       val history = (new NothingAtStakeCoinHistory).append(genesisBlock).get._1
       val tx1 = NothingAtStakeCoinTransaction(
         wallet.secrets.head,

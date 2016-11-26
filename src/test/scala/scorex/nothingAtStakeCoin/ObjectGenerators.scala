@@ -58,16 +58,18 @@ trait ObjectGenerators {
   lazy val nothingAtStakeCoinTransactionSeqGenerator: Gen[Seq[NothingAtStakeCoinTransaction]] =
     Gen.listOfN(settings.transactionsPerBlock, nothingAtSakeCoinTransactionGenerator).map(_.toSeq)
 
-  lazy val emptyTx : NothingAtStakeCoinTransaction = NothingAtStakeCoinTransaction(IndexedSeq(), IndexedSeq(), IndexedSeq(), 0, 0)
+  lazy val emptyTx: NothingAtStakeCoinTransaction = NothingAtStakeCoinTransaction(IndexedSeq(), IndexedSeq(), IndexedSeq(), 0, 0)
 
-  lazy val nothingAtSakeCoinBlockGenerator: Gen[NothingAtStakeCoinBlock] = for {
-    parentId: ModifierId <- genBytesList(ModifierIdSize)
-    coinAge: CoinAgeLength <- Gen.choose(0: Long, Long.MaxValue-1)
+  lazy val blockIdGenerator: Gen[ModifierId] = genBytesList(ModifierIdSize)
+
+  def nothingAtSakeCoinBlockGenerator(p: Option[ModifierId] = None): Gen[NothingAtStakeCoinBlock] = for {
+    coinAge: CoinAgeLength <- Gen.choose(0: Long, Long.MaxValue - 1)
     key <- keyGenerator
     possibleTxs <- nothingAtStakeCoinTransactionSeqGenerator
-    txs = possibleTxs.map(tx => if(tx.timestamp==Long.MaxValue) tx.copy(timestamp = Long.MaxValue-1) else tx)
+    parentId = p.getOrElse(blockIdGenerator.sample.get)
+    txs = possibleTxs.map(tx => if (tx.timestamp == Long.MaxValue) tx.copy(timestamp = Long.MaxValue - 1) else tx)
     coinStakeTx = emptyTx
-    timestamp : Timestamp = (coinStakeTx +: txs).map(_.timestamp).max + 1
+    timestamp: Timestamp = (coinStakeTx +: txs).map(_.timestamp).max + 1
   } yield NothingAtStakeCoinBlock(
     parentId = parentId,
     timestamp = timestamp,
@@ -77,9 +79,9 @@ trait ObjectGenerators {
   )
 
   def genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(size: Int): Gen[Seq[NothingAtStakeCoinBlock]] = {
-    Gen.listOfN(size, nothingAtSakeCoinBlockGenerator).map(_.toSeq)
+    Gen.listOfN(size, nothingAtSakeCoinBlockGenerator()).map(_.toSeq)
   }
 
-  lazy val nothingAtStakeCoinBlockSeqGenerator: Gen[Seq[NothingAtStakeCoinBlock]] =
-    Gen.listOf(nothingAtSakeCoinBlockGenerator).map(_.toSeq)
+  def nothingAtStakeCoinBlockSeqGenerator(parentId: Option[ModifierId] = None): Gen[Seq[NothingAtStakeCoinBlock]] =
+    Gen.listOf(nothingAtSakeCoinBlockGenerator(parentId)).map(_.toSeq)
 }

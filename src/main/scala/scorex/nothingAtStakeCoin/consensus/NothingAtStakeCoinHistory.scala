@@ -5,23 +5,24 @@ import java.nio.ByteBuffer
 import scorex.core.NodeViewComponentCompanion
 import scorex.core.NodeViewModifier._
 import scorex.core.consensus.History
-import scorex.core.consensus.History.{RollbackTo, _}
+import scorex.core.consensus.History.{HistoryComparisonResult, RollbackTo, _}
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
 import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock._
 import scorex.nothingAtStakeCoin.block.{NothingAtStakeCoinBlock, NothingAtStakeCoinSyncInfo}
-import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory.{BlockIndexLength, TxOutputIndexLength, sonsSize}
+import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory.{BlockIndexLength, SonsSize, TxOutputIndexLength}
 import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinOutput, NothingAtStakeCoinTransaction}
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction.Value
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
 
+import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
 case class OutputBlockLocation(blockId: ByteBuffer, blockIndex: BlockIndexLength, txOutputIndex: TxOutputIndexLength)
 
 case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
                                      blocks: Map[ByteBuffer, NothingAtStakeCoinBlock] = Map(),
-                                     blocksSons: Map[ByteBuffer, sonsSize] = Map(),
+                                     blocksSons: Map[ByteBuffer, List[ByteBuffer]] = Map(),
                                      bestNChains: List[ByteBuffer] = List(),
                                      outputBlockLocations: Map[ByteBuffer, OutputBlockLocation] = Map()
                                     )
@@ -33,16 +34,18 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
 
   override def isEmpty: Boolean = blocks.isEmpty
 
-  override def blockById(blockId: BlockId): Option[NothingAtStakeCoinBlock] = blocks.get(ByteBuffer.wrap(blockId))
+  def blockById(id: ByteBuffer) = blocks.get(id)
+
+  override def blockById(blockId: BlockId): Option[NothingAtStakeCoinBlock] = blockById(wrapId(blockId))
 
   override def append(block: NothingAtStakeCoinBlock): Try[(NothingAtStakeCoinHistory, Option[RollbackTo[NothingAtStakeCoinBlock]])] = {
     log.debug("Appending block to history")
-    lazy val uniqueTxs: Boolean = block.txs.toSet.size == block.txs.length //Check for duplicate txs
-    lazy val blockSignatureValid: Boolean = block.generator.verify(//Check block generator matches signature
+    val uniqueTxs: Boolean = block.txs.toSet.size == block.txs.length //Check for duplicate txs
+    val blockSignatureValid: Boolean = block.generator.verify(//Check block generator matches signature
       block.companion.messageToSign(block),
       block.generationSignature)
-    lazy val stakeTxValid: Boolean = block.txs.nonEmpty && checkStakeTx(block.txs.head, block.generator)
-    lazy val blockTimestampValid: Boolean = block.txs.forall(_.timestamp < block.timestamp)
+    val stakeTxValid: Boolean = block.txs.nonEmpty && checkStakeTx(block.txs.head, block.generator)
+    val blockTimestampValid: Boolean = block.txs.forall(_.timestamp < block.timestamp)
 
     if (uniqueTxs &&
       blockSignatureValid &&
@@ -52,11 +55,10 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
       log.debug("Append conditions met")
 
       /* Add block */
-      val newBlocks = blocks + (ByteBuffer.wrap(block.id) -> block)
+      val newBlocks = blocks + (wrapId(block.id) -> block)
       val (newBestN, blockIdToRemove) = updateBestN(block)
-      //FIX ME: getOrElse(blocksSons) is done for the genesis block
-      val newBlocksSons = changeSons(ByteBuffer.wrap(block.parentId), 1).map(_._1).getOrElse(blocksSons) +
-        (ByteBuffer.wrap(block.id) -> (0: sonsSize)) //Add new block to blocksSons
+      //FIXME: getOrElse(blocksSons) is done for the genesis block
+      val newBlocksSons = changeSons(wrapId(block.parentId), wrapId(block.id), isAdd = true).getOrElse(blocksSons) + (wrapId(block.id) -> List()) //Add new block to blocksSons
       val newTxVerifiedInBlock = outputBlockLocationSeq(block)
       NothingAtStakeCoinHistory(numberOfBestChains, newBlocks, newBlocksSons, newBestN, newTxVerifiedInBlock) //Obtain newHistory with newInfo
         .removeBlock(blockIdToRemove) //Remove blockToRemove
@@ -67,21 +69,26 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
 
   def removeBlock(blockToRemoveId: Option[ByteBuffer]): Try[(NothingAtStakeCoinHistory, Option[RollbackTo[NothingAtStakeCoinBlock]])] = blockToRemoveId match {
     case Some(blockId) =>
-      if (blocks.get(blockId).isDefined && blocks.get(ByteBuffer.wrap(blocks(blockId).parentId)).isDefined) {
+      if (blocks.get(blockId).isDefined && blocks.get(wrapId(blocks(blockId).parentId)).isDefined) {
         //Remove txs from txVerifiedInBlock
         val blockToRemove = blocks(blockId)
-        val blockToRemoveOutputs = blockToRemove.txs.flatMap(tx => tx.newBoxes.map(box => ByteBuffer.wrap(box.id)))
+        val blockToRemoveOutputs = blockToRemove.txs.flatMap(tx => tx.newBoxes.map(box => wrapId(box.id)))
         val newTxVerifiedInBlock = outputBlockLocations -- blockToRemoveOutputs
 
         //Remove blockToRemoveId
-        val parentId = ByteBuffer.wrap(blockToRemove.parentId)
-        val historyWithoutBlock = changeSons(blockId, -1).map(_._1)
-          .map[NothingAtStakeCoinHistory](newBlocksInfo => NothingAtStakeCoinHistory(numberOfBestChains, blocks - blockId, newBlocksInfo, bestNChains, newTxVerifiedInBlock))
+        val parentId = wrapId(blockToRemove.parentId)
+        val historyWithoutBlock = changeSons(parentId, blockId, isAdd = false)
+          .map[NothingAtStakeCoinHistory](newSons => NothingAtStakeCoinHistory(
+          numberOfBestChains = numberOfBestChains,
+          blocks = blocks - blockId,
+          blocksSons = newSons,
+          bestNChains = bestNChains.filterNot(id => id == blockId),
+          newTxVerifiedInBlock))
 
         //Remove parent if necessary
-        historyWithoutBlock.map(_.changeSons(parentId, -1).get) match {
-          case Success((newBlockSons, parentNumSons)) if parentNumSons > 0 => Success(historyWithoutBlock.get.copy(blocksSons = newBlockSons), None)
-          case Success((newBlockSons, parentNumSons)) if parentNumSons == 0 => historyWithoutBlock.get.copy(blocksSons = newBlockSons).removeBlock(Some(parentId))
+        historyWithoutBlock match {
+          case Success(h: NothingAtStakeCoinHistory) if h.blocksSons.get(parentId).isDefined => Success(h, None)
+          case Success(h: NothingAtStakeCoinHistory) if h.blocksSons.get(parentId).isEmpty => h.removeBlock(Some(parentId))
           case Failure(e) => Failure(e)
         }
       }
@@ -91,18 +98,46 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     case None => Success((this, None))
   }
 
-  override def applicable(block: NothingAtStakeCoinBlock): Boolean = isEmpty || blocks.get(ByteBuffer.wrap(block.parentId)).isDefined
+  override def applicable(block: NothingAtStakeCoinBlock): Boolean = isEmpty || blocks.get(wrapId(block.parentId)).isDefined
 
   override def openSurfaceIds(): Seq[BlockId] = bestNChains.map(_.array())
 
-  override def continuation(from: Seq[(ModifierTypeId, ModifierId)], size: Int): Option[Seq[NothingAtStakeCoinBlock]] = ???
+  override def continuation(from: Seq[(ModifierTypeId, ModifierId)], size: Int): Option[Seq[NothingAtStakeCoinBlock]] =
+    continuationIds(from, size) match {
+      case Some(ids) => Some(ids.map(id => blockById(id._2).get))
+      case None => None
+    }
 
-  override def continuationIds(from: Seq[(ModifierTypeId, ModifierId)], size: Int): Option[Seq[(ModifierTypeId, ModifierId)]] = ???
+  override def continuationIds(from: Seq[(ModifierTypeId, ModifierId)], size: Int): Option[Seq[(ModifierTypeId, ModifierId)]] = {
+    require(from.size == 1)
+    require(from.head._1 == NothingAtStakeCoinBlock.ModifierTypeId)
+
+    @tailrec
+    def continuationRecursive(acum: Seq[(ModifierTypeId, ModifierId)], sons: List[ByteBuffer], size: Int): Seq[(ModifierTypeId, ModifierId)] = {
+      if (sons.isEmpty || acum.size == size) acum
+      else {
+        blocksSons.get(sons.head) match {
+          case None => acum
+          case Some(headSons) if headSons.nonEmpty => continuationRecursive(acum :+ (NothingAtStakeCoinBlock.ModifierTypeId -> sons.head.array()), headSons ++ sons.tail, size)
+          case Some(headSons) if headSons.isEmpty => continuationRecursive(acum :+ (NothingAtStakeCoinBlock.ModifierTypeId -> sons.head.array()), sons.tail, size)
+        }
+      }
+    }
+
+    val found = from.flatMap(item => {
+      blocksSons.get(wrapId(item._2)) match {
+        case Some(sons) => continuationRecursive(Seq(), sons, size)
+        case None => Seq()
+      }
+    })
+    if (found.isEmpty) None else Some(found.take(size))
+  }
 
   override def syncInfo(answer: Boolean): NothingAtStakeCoinSyncInfo =
-    NothingAtStakeCoinSyncInfo(answer, bestNChains.map(_.array()))
+    NothingAtStakeCoinSyncInfo(answer, bestNChains.flatMap(id => blockById(id)).map(block => block.id -> block.coinAge))
 
-  override def compare(other: NothingAtStakeCoinSyncInfo): HistoryComparisonResult.Value = ???
+  // TODO We are not dealing with trolling nodes that might be sending wrong coinage to us as syncInfo
+  override def compare(other: NothingAtStakeCoinSyncInfo): HistoryComparisonResult.Value = compareRecursive(HistoryComparisonResult.Equal, other.bestNChains)
 
   override type NVCT = this.type
 
@@ -112,7 +147,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     val maybeCoinAge = tx.from.foldLeft[Try[CoinAgeLength]](Success(0: CoinAgeLength)) { case (prevCalculation, txFromInput) =>
       prevCalculation match {
         case Success(prevCoinAge) =>
-          val maybeBlockLocation = outputBlockLocations.get(ByteBuffer.wrap(txFromInput.id))
+          val maybeBlockLocation = outputBlockLocations.get(wrapId(txFromInput.id))
           val maybeBlock: Option[NothingAtStakeCoinBlock] = maybeBlockLocation.flatMap(blockLocation => blocks.get(blockLocation.blockId))
           val maybeTx: Option[NothingAtStakeCoinTransaction] = maybeBlock.flatMap(block => Try {
             block.txs(maybeBlockLocation.get.blockIndex)
@@ -124,7 +159,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
             case Some(output) if tx.timestamp < maybeTx.get.timestamp =>
               Failure(new Exception("getCoinAge: tx output is used in a tx before it according to timestamps"))
             case Some(output) if tx.timestamp >= maybeTx.get.timestamp =>
-              val timestampDiff = tx.timestamp - maybeTx.get.timestamp match{
+              val timestampDiff = tx.timestamp - maybeTx.get.timestamp match {
                 case tDiff if tDiff < NothingAtStakeCoinHistory.STAKE_MIN_AGE => 0
                 case tDiff if tDiff > NothingAtStakeCoinHistory.STAKE_MAX_AGE => NothingAtStakeCoinHistory.STAKE_MAX_AGE
                 case tDiff => tDiff
@@ -151,34 +186,55 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     getCoinAge(tx).map(_ * 33 / (365 * 33 + 8) * NothingAtStakeCoinHistory.CENT)
 
   /* Auxiliary functions */
-  private def changeSons(blockId: ByteBuffer, amountToAdd: sonsSize): Try[(Map[ByteBuffer, sonsSize], sonsSize)] = {
-    blocksSons.get(blockId) match {
-      case Some(sonsNumber) =>
-        if (sonsNumber + amountToAdd > 0) {
-          val newSonsNum = sonsNumber + amountToAdd
-          Success(blocksSons - blockId + (blockId -> newSonsNum), newSonsNum)
-        } else
-          Success((blocksSons - blockId, 0: sonsSize))
-      case None => Failure(new Exception(s"changeSons: Block ${blockId} not found on history"))
+  private def changeSons(parentId: ByteBuffer, sonId: ByteBuffer, isAdd: Boolean): Try[Map[ByteBuffer, List[ByteBuffer]]] = {
+    blocksSons.get(parentId) match {
+      case Some(sons: List[ByteBuffer]) =>
+        val newSons = if (isAdd) sons :+ sonId else sons.filter(son => son != sonId)
+        val newBlocksSons = if (isAdd) blocksSons else blocksSons - sonId // if its a removal, clear removed sons info
+        Success(newBlocksSons + (parentId -> newSons))
+      case None => Failure(new Exception(s"changeSons: Block $parentId not found on history"))
     }
   }
 
-  private def updateBestN(newBlock: NothingAtStakeCoinBlock): (List[ByteBuffer], Option[ByteBuffer]) = {
-    val prevBestN: List[ByteBuffer] = bestNChains
-    val newBlockId = ByteBuffer.wrap(newBlock.id)
-    blocks.get(ByteBuffer.wrap(newBlock.parentId)) match {
-      case Some(newBlockParent: NothingAtStakeCoinBlock) if bestNChains.contains(ByteBuffer.wrap(newBlockParent.id)) => (newBlockId +: (prevBestN diff List(ByteBuffer.wrap(newBlockParent.id))), None)
-      case _ => {
-        if (prevBestN.size < numberOfBestChains) {
-          (newBlockId +: prevBestN, None)
-        } else {
-          val worstBlockId = prevBestN.minBy[NothingAtStakeCoinBlock.CoinAgeLength](block => blocksSons(block))
-          val newBestN =
-            if (blocks(worstBlockId).coinAge <= newBlock.coinAge) newBlockId +: (prevBestN diff List(worstBlockId))
-            else prevBestN
-          (newBestN, Some(worstBlockId))
+  @tailrec
+  private def compareRecursive(comparisonResult: HistoryComparisonResult.Value, bestNChains: List[(BlockId, CoinAgeLength)]): History.HistoryComparisonResult.Value = {
+    // This consensus algorithm tries to find if the other node has at least a younger branch (not included in best chains)
+    // in order to let the peers receive them
+    if(bestNChains.isEmpty) return comparisonResult
+
+    comparisonResult match {
+      case HistoryComparisonResult.Younger => comparisonResult
+      case (HistoryComparisonResult.Equal | HistoryComparisonResult.Older) if bestNChains.nonEmpty => {
+        val itemToCompare = bestNChains.head
+        val maybeOurBlockNumberOfSons = blocksSons.get(wrapId(itemToCompare._1))
+        (maybeOurBlockNumberOfSons, itemToCompare) match {
+          case (Some(sons), _) if sons.nonEmpty => HistoryComparisonResult.Younger
+          case (Some(sons), _) if sons.isEmpty => compareRecursive(comparisonResult, bestNChains.tail)
+          case (None, (_, coinAge: CoinAgeLength)) => if (belongsToBestN(coinAge)) compareRecursive(HistoryComparisonResult.Older, bestNChains.tail) else compareRecursive(comparisonResult, bestNChains)
         }
       }
+    }
+  }
+
+  /**
+    * This method returns the block with least con age amongst the ones with highest coinAge
+    */
+  private def leastCoinAgeFromBestChains: NothingAtStakeCoinBlock = bestNChains.flatMap(id => blockById(id)).minBy[NothingAtStakeCoinBlock.CoinAgeLength](b => b.coinAge)
+
+  private def belongsToBestN(coinAge: CoinAgeLength): Boolean = bestNChains.size < numberOfBestChains || leastCoinAgeFromBestChains.coinAge < coinAge
+
+  private def updateBestN(newBlock: NothingAtStakeCoinBlock): (List[ByteBuffer], Option[ByteBuffer]) = {
+    val newBlockId = wrapId(newBlock.id)
+    blocks.get(wrapId(newBlock.parentId)) match {
+      case Some(newBlockParent: NothingAtStakeCoinBlock) if bestNChains.contains(wrapId(newBlockParent.id)) => (newBlockId +: (bestNChains diff List(wrapId(newBlockParent.id))), None)
+      case _ =>
+        if (bestNChains.size < numberOfBestChains) {
+          (newBlockId +: bestNChains, None)
+        } else {
+          val worstBlock = leastCoinAgeFromBestChains
+          if (worstBlock.coinAge <= newBlock.coinAge) (newBlockId +: (bestNChains diff List(worstBlock.id)), Some(wrapId(worstBlock.id)))
+          else (bestNChains, None)
+        }
     }
   }
 
@@ -188,12 +244,12 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
       txWithBlockIndex.flatMap { case (tx: NothingAtStakeCoinTransaction, blockIndex: Int) =>
         val boxesWithTxOutputIndex: Seq[(PublicKey25519NoncedBox, TxOutputIndexLength)] = tx.newBoxes.toIndexedSeq.zipWithIndex
         boxesWithTxOutputIndex.map(pairBoxTxOutputIndex =>
-          (ByteBuffer.wrap(pairBoxTxOutputIndex._1.id), OutputBlockLocation(ByteBuffer.wrap(block.id), blockIndex, pairBoxTxOutputIndex._2)))
+          (wrapId(pairBoxTxOutputIndex._1.id), OutputBlockLocation(wrapId(block.id), blockIndex, pairBoxTxOutputIndex._2)))
       }
     boxesWithBlockLocation.foldLeft[Map[ByteBuffer, OutputBlockLocation]](Map()) {
       case (prevTxVerifiedInBlock, (boxId, outputLocation)) =>
         prevTxVerifiedInBlock +
-          (boxId -> OutputBlockLocation(ByteBuffer.wrap(block.id), outputLocation.blockIndex, outputLocation.txOutputIndex))
+          (boxId -> OutputBlockLocation(wrapId(block.id), outputLocation.blockIndex, outputLocation.txOutputIndex))
     }
   }
 
@@ -206,7 +262,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     val totalInput = stakeTx.from.foldLeft[Try[Value]](Success(0)) { (maybePartialSumInput, input) =>
       maybePartialSumInput match {
         case Success(partialSumInput) =>
-          outputBlockLocations.get(ByteBuffer.wrap(input.id)) match {
+          outputBlockLocations.get(wrapId(input.id)) match {
             case Some(OutputBlockLocation(blockId, blockIndex, txOutputIndex)) =>
               Success(partialSumInput + blocks(blockId).txs(blockIndex).to(txOutputIndex).value)
             case None => Failure(new Exception("checkStakeTx: stakeTx input not found on history"))
@@ -219,10 +275,12 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     val correctInputOutputQuantities = totalInput.isSuccess && reward.isSuccess && totalInput.get + reward.get == totalOutput
     inputFromMinter && outputToMinter && correctInputOutputQuantities
   }
+
+  private def wrapId(bytes: Array[Byte]): ByteBuffer = ByteBuffer.wrap(bytes)
 }
 
 object NothingAtStakeCoinHistory {
-  type sonsSize = Long
+  type SonsSize = Long
   type BlockIndexLength = Int
   type TxOutputIndexLength = Int
 

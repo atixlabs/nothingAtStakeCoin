@@ -12,7 +12,7 @@ class NothingAtStakeCoinBlockCompanionSpec extends PropSpec
   with ObjectGenerators {
 
   property("Block serialization") {
-    forAll(nothingAtSakeCoinBlockGenerator) { block: NothingAtStakeCoinBlock =>
+    forAll(nothingAtSakeCoinBlockGenerator()) { block: NothingAtStakeCoinBlock =>
       val asBytes = NothingAtStakeCoinBlockCompanion.bytes(block)
       val asObject = NothingAtStakeCoinBlockCompanion.parse(asBytes).get
       val asBytesAgain = NothingAtStakeCoinBlockCompanion.bytes(asObject)
