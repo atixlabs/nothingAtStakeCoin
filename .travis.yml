@@ -1,0 +1,8 @@
+language: scala
+scala:
+  - 2.11.8
+jdk:
+  - oraclejdk8
+before_install:
+  - git clone https://github.com/ScorexFoundation/Scorex.git /tmp/Scorex && cd /tmp/Scorex && sbt publish-local
+  - cd /home/travis/build/atixlabs/nothingAtStakeCoin
