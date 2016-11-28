@@ -9,6 +9,7 @@ import scorex.core.consensus.History
 import scorex.core.consensus.History.{HistoryComparisonResult, RollbackTo, _}
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
+import scorex.crypto.encode.Base58
 import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock._
 import scorex.nothingAtStakeCoin.block.{NothingAtStakeCoinBlock, NothingAtStakeCoinSyncInfo}
 import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory.{BlockIndexLength, TxOutputIndexLength}
@@ -42,7 +43,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
   override def blockById(blockId: BlockId): Option[NothingAtStakeCoinBlock] = blockById(wrapId(blockId))
 
   override def append(block: NothingAtStakeCoinBlock): Try[(NothingAtStakeCoinHistory, Option[RollbackTo[NothingAtStakeCoinBlock]])] = {
-    log.debug("Appending block to history")
+    log.debug(s"Appending block ${block.idAsString()} to history")
     this match {
       case _ if this.isEmpty =>
         val newHistory = NothingAtStakeCoinHistory(numberOfBestChains,
@@ -215,7 +216,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
           val newBlocksSons = blocksNodeInfo - sonId // if its a removal, clear removed sons info
           Success(newBlocksSons + (parentId -> blockNodeInfo.copy(sons = newSons)))
         }
-      case None => Failure(new Exception(s"changeSons: Block $parentId not found on history"))
+      case None => Failure(new Exception(s"changeSons: Block ${Base58.encode(parentId.array())} not found on history"))
     }
   }
 
@@ -321,7 +322,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     */
   @tailrec
   private def nodesToRemove(prevNodesToRemove: Seq[ByteBuffer], from: ByteBuffer, to: ByteBuffer): Seq[ByteBuffer] = {
-    if (from == to || blocksNodeInfo(from).sons.size>1) prevNodesToRemove
+    if (from == to || blocksNodeInfo(from).sons.size > 1) prevNodesToRemove
     else nodesToRemove(from +: prevNodesToRemove, wrapId(blockById(from).get.parentId), to)
   }
 
