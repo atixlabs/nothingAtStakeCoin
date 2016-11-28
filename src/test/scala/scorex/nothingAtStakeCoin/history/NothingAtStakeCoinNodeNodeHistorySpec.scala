@@ -289,16 +289,20 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
       When("Appending two blocks to one of the best chains")
       val block8 = nothingAtSakeCoinBlockGenerator(p = Some(block1.id), ca = Some(Long.MaxValue)).sample.get
-      val afterAppendHistory = beforeAppendHistory.append(block8).get._1
+      val (afterAppendHistory, rollbackTo) = beforeAppendHistory.append(block8).get
 
-      When("Appending two blocks to one of the best chains")
-
-      Then("The new history should have the last 2 added blocks")
+      Then("The new history should have the correct amount of elements")
       afterAppendHistory.blocks.size shouldEqual 7 // genesis, B2, B3, B1, B7, B8
+      Then("The new history should the correct bestNChains")
       afterAppendHistory.bestNChains.size shouldEqual numberOfBestChains // be the maxValue
       afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block6.id)) shouldEqual true
       afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block7.id)) shouldEqual true
       afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block8.id)) shouldEqual true
+      Then("Rollback history should be ok")
+      rollbackTo.isDefined shouldEqual true
+      rollbackTo.get.to sameElements genesisBlock.id shouldEqual true
+      rollbackTo.get.thrown.size shouldEqual 2
+      rollbackTo.get.applied.size shouldEqual 7
     }
   }
 
