@@ -13,7 +13,7 @@ import scorex.nothingAtStakeCoin.peercoin.Minter.{MintLoop, StartMinting, StopMi
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction._
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinOutput, NothingAtStakeCoinTransaction}
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinInput, NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
 import scorex.nothingAtStakeCoin.transaction.state.NothingAtStakeCoinMinimalState
 import scorex.nothingAtStakeCoin.transaction.wallet.NothingAtStakeCoinWallet
 
@@ -104,30 +104,39 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
                     timestamp: Long,
                     history : NothingAtStakeCoinHistory): Option[NothingAtStakeCoinBlock] = {
 
-    //val minterCoinAge = calculateCoinAge()
+    val nonceFrom = coinStakeBoxes.map(_.nonce).toIndexedSeq
+    val to = coinStakeBoxes.map(box => (minterPk.publicImage, box.value)).toIndexedSeq
+    val from = nonceFrom.map(NothingAtStakeCoinInput(minterPk.publicImage, _))
 
-    val stakeTransactionWithoutReward = NothingAtStakeCoinTransaction(
-      minterPk,
-      coinStakeBoxes.map(_.nonce).toIndexedSeq,
-      coinStakeBoxes.map(box => (minterPk.publicImage, box.value)).toIndexedSeq,
-      timestamp,
-      timestamp
-    )
-
-    val maybeStakeReward = history.getStakeReward(stakeTransactionWithoutReward)
+    val maybeStakeReward = history.getStakeReward(from, timestamp)
     maybeStakeReward match{
       case Success(reward) =>
-        val toWithReward = NothingAtStakeCoinOutput(minterPk.publicImage, reward) +: stakeTransactionWithoutReward.to
-        val stakeTransactionWithReward = stakeTransactionWithoutReward.copy(to = toWithReward.toIndexedSeq)
-        Some(NothingAtStakeCoinBlock(
-          parentId = parent.id,
-          timestamp = timestamp,
-          generatorKeys = minterPk,
-          coinAge = Long.MaxValue, //FIX ME: Should be the coinAge consumed by the block
-          txs = stakeTransactionWithReward +: txs
-        ))
+        val stakeTransactionWithReward = NothingAtStakeCoinTransaction(
+          minterPk,
+          nonceFrom,
+          (minterPk.publicImage, reward) +: to,
+          0,
+          timestamp
+        )
+        history.getCoinAge(stakeTransactionWithReward +: txs) match{
+          case Success(blockCoinAge) => Some(NothingAtStakeCoinBlock(
+            parentId = parent.id,
+            timestamp = timestamp,
+            generatorKeys = minterPk,
+            coinAge = blockCoinAge,
+            txs = stakeTransactionWithReward +: txs
+          ))
+          case Failure(e) => None
+        }
       case Failure(e) =>
-        //FIX ME: Should return None because reward is not found but doing that currently breaks the minter tests
+        //FIXME: Should return None because reward is not found but doing that currently breaks the minter tests
+        val stakeTransactionWithoutReward = NothingAtStakeCoinTransaction(
+          minterPk,
+          nonceFrom,
+          to,
+          0,
+          timestamp
+        )
         Some(NothingAtStakeCoinBlock(
           parentId = parent.id,
           timestamp = timestamp,
@@ -146,8 +155,4 @@ object Minter {
   case object StopMiniting
 
   case object MintLoop
-
-  def calculateCoinAge(minimalState: NothingAtStakeCoinMinimalState, proposition: PublicKey25519Proposition) = {
-    minimalState.boxesOf(proposition)
-  }
 }
