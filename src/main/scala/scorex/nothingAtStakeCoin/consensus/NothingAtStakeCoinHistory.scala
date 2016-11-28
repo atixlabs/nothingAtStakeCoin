@@ -90,11 +90,10 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
       // best N chains and the old bestNChain branch to be removed. Then, we will re add all of them and remove all
       // blocks that can be removed from the removed node branch
       case Some(blockId) => {
-        val commonParent: ByteBuffer = findCommonParent(bestNChains :+ blockId, None)
+        val commonParent: ByteBuffer = findCommonParent((bestNChains :+ blockId).toSet)
         val allBlockFromParent = continuationRecursive(Seq(), blocksNodeInfo(commonParent).sons)
         // We will only remove blocks from leaf to parent that do not have any other sons, which means, they can be removed
-        val blocksToRemove = nodesInfoUntilParent(Seq(), blockId, commonParent)
-          .filter(toRemove => toRemove._2.sons.isEmpty).map(toRemove => blockById(toRemove._1).get)
+        val blocksToRemove = nodesToRemove(Seq(), blockId, commonParent).map(toRemove => blockById(toRemove).get)
         val blocksToAdd = allBlockFromParent.foldLeft(Seq[NothingAtStakeCoinBlock]()) { (acum, blockFromParent) =>
           if (blocksToRemove.exists(tr => tr.id sameElements blockFromParent._2)) acum
           else acum :+ blockById(blockFromParent._2).get
@@ -118,7 +117,6 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
       }
       case None => Success(this -> None)
     }
-
   }
 
   override def applicable(block: NothingAtStakeCoinBlock): Boolean = {
@@ -304,21 +302,16 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
   }
 
   @tailrec
-  private def findCommonParent(ids: List[ByteBuffer], commonId: Option[ByteBuffer]): ByteBuffer = {
-    commonId match {
-      case Some(foundId) => foundId
-      case None => {
-        val parents = ids.flatMap(id => blockById(id)).map(b => ByteBuffer.wrap(b.parentId)).toSet
-        if (parents.size == 1) findCommonParent(ids, Some(parents.head)) // If all items have the same parent, we have found it!
-        else {
-          val maxDistanceToGenesisOne: (ByteBuffer, BlockIndexLength) = ids.map(id => id -> blocksNodeInfo(id).levelsFromRoot).maxBy(_._2)
-          val maxDistanceBlock = blockById(maxDistanceToGenesisOne._1).get
-          val maxDistanceBlockId = wrapId(maxDistanceBlock.id)
-          // Add parent, remove son and iterate again
-          val nextIterationIds = ids.filter(id => id != maxDistanceBlockId) :+ wrapId(maxDistanceBlock.parentId)
-          findCommonParent(nextIterationIds, commonId)
-        }
-      }
+  private def findCommonParent(ids: Set[ByteBuffer]): ByteBuffer = {
+    val parents = ids.flatMap(id => blockById(id)).map(b => ByteBuffer.wrap(b.parentId)).toSet
+    if (parents.size == 1) parents.head // If all items have the same parent, we have found it!
+    else {
+      val maxDistanceToGenesisOne: (ByteBuffer, BlockIndexLength) = ids.map(id => id -> blocksNodeInfo(id).levelsFromRoot).maxBy(_._2)
+      val maxDistanceBlock = blockById(maxDistanceToGenesisOne._1).get
+      val maxDistanceBlockId = wrapId(maxDistanceBlock.id)
+      // Add parent, remove son and iterate again
+      val nextIterationIds = ids.filter(id => id != maxDistanceBlockId) + wrapId(maxDistanceBlock.parentId)
+      findCommonParent(nextIterationIds)
     }
   }
 
@@ -327,10 +320,9 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     * in the history
     */
   @tailrec
-  private def nodesInfoUntilParent(nodesInfo: Seq[(ByteBuffer, BlockNodeInfo)], from: ByteBuffer, to: ByteBuffer): Seq[(ByteBuffer, BlockNodeInfo)] = {
-    if (from == to) return nodesInfo
-    val block = blockById(from).get
-    nodesInfoUntilParent(nodesInfo :+ from -> blocksNodeInfo(from), wrapId(block.parentId), to)
+  private def nodesToRemove(prevNodesToRemove: Seq[ByteBuffer], from: ByteBuffer, to: ByteBuffer): Seq[ByteBuffer] = {
+    if (from == to || blocksNodeInfo(from).sons.size>1) prevNodesToRemove
+    else nodesToRemove(from +: prevNodesToRemove, wrapId(blockById(from).get.parentId), to)
   }
 
   @tailrec
