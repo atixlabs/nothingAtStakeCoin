@@ -12,7 +12,7 @@ import scorex.crypto.encode.Base64
 import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction
 
-import scala.util.Try
+import scala.util.{Success, Try}
 
 case class NothingAtStakeCoinWallet(settings: Settings)
   extends Wallet[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock, NothingAtStakeCoinWallet] {
@@ -53,6 +53,6 @@ case class NothingAtStakeCoinWallet(settings: Settings)
 
   override def scanPersistent(modifier: PMOD): NothingAtStakeCoinWallet = this
 
-  override def rollback(to: VersionTag): Try[NothingAtStakeCoinWallet] = ???
+  override def rollback(to: VersionTag): Try[NothingAtStakeCoinWallet] = Success(this)
 }
 
