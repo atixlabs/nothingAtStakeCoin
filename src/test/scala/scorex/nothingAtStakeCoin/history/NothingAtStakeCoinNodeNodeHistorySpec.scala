@@ -292,7 +292,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       val (afterAppendHistory, rollbackTo) = beforeAppendHistory.append(block8).get
 
       Then("The new history should have the correct amount of elements")
-      afterAppendHistory.blocks.size shouldEqual 7 // genesis, B2, B3, B1, B7, B8
+      afterAppendHistory.blocks.size shouldEqual 7 // genesis, B1, B2, B3, B6, B7, B8
       Then("The new history should the correct bestNChains")
       afterAppendHistory.bestNChains.size shouldEqual numberOfBestChains // be the maxValue
       afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block6.id)) shouldEqual true
@@ -302,7 +302,15 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       rollbackTo.isDefined shouldEqual true
       rollbackTo.get.to sameElements genesisBlock.id shouldEqual true
       rollbackTo.get.thrown.size shouldEqual 2
-      rollbackTo.get.applied.size shouldEqual 7
+      rollbackTo.get.thrown.contains(block4) shouldEqual true
+      rollbackTo.get.thrown.contains(block5) shouldEqual true
+      rollbackTo.get.applied.size shouldEqual 6
+      rollbackTo.get.applied.contains(block1) shouldEqual true
+      rollbackTo.get.applied.contains(block2) shouldEqual true
+      rollbackTo.get.applied.contains(block3) shouldEqual true
+      rollbackTo.get.applied.contains(block6) shouldEqual true
+      rollbackTo.get.applied.contains(block7) shouldEqual true
+      rollbackTo.get.applied.contains(block8) shouldEqual true
     }
   }
 

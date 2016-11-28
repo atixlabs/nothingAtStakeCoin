@@ -69,7 +69,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
           stakeTxValid &&
           blockTimestampValid
         ) {
-          log.debug("Append conditions met")
+          log.debug(s"Appending conditions met for block ${block.idAsString()}")
 
           /* Add block */
           val newBlocks = blocks + (wrapId(block.id) -> block)
@@ -91,27 +91,33 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
       // best N chains and the old bestNChain branch to be removed. Then, we will re add all of them and remove all
       // blocks that can be removed from the removed node branch
       case Some(blockId) => {
+        log.debug(s"About to remove ${Base58.encode(blockId.array())} from history")
         val commonParent: ByteBuffer = findCommonParent((bestNChains :+ blockId).toSet)
         val allBlockFromParent = continuationRecursive(Seq(), blocksNodeInfo(commonParent).sons)
         // We will only remove blocks from leaf to parent that do not have any other sons, which means, they can be removed
         val blocksToRemove = nodesToRemove(Seq(), blockId, commonParent).reverse.map(toRemove => blockById(toRemove).get)
         val blocksToAdd = allBlockFromParent.foldLeft(Seq[NothingAtStakeCoinBlock]()) { (acum, blockFromParent) =>
           if (blocksToRemove.exists(tr => tr.id sameElements blockFromParent._2)) acum
-          else acum :+ blockById(blockFromParent._2).get
+          else {
+            log.debug(s"Block to re add ${Base58.encode(blockFromParent._2)} to history")
+            acum :+ blockById(blockFromParent._2).get
+          }
         }.sortBy(_.timestamp) // we need to sort the blocks by timestamp in order to append the unspents in the same order
         val rollbackTo = RollbackTo(to = commonParent.array(), thrown = blocksToRemove, applied = blocksToAdd)
+        log.debug(s"RollbackTo ${Base58.encode(commonParent.array())} from history")
         val newHistory = blocksToRemove.foldLeft[NothingAtStakeCoinHistory](this) { (currHistory: NothingAtStakeCoinHistory, blockToRemove: NothingAtStakeCoinBlock) =>
+          log.debug(s"Removing block ${blockToRemove.idAsString()} from history")
           //Remove txs from outputBlockLocations
           val blockToRemoveOutputs = blockToRemove.txs.flatMap(tx => tx.newBoxes.map(box => wrapId(box.id)))
-          val newOutputBlockLocations = outputBlockLocations -- blockToRemoveOutputs
+          val newOutputBlockLocations = currHistory.outputBlockLocations -- blockToRemoveOutputs
           //Remove blockToRemoveId
           val toRemoveId = wrapId(blockToRemove.id)
           val newSons = currHistory.changeSons(wrapId(blockToRemove.parentId), toRemoveId, isAdd = false).get
           NothingAtStakeCoinHistory(
-            numberOfBestChains = numberOfBestChains,
-            blocks = blocks - toRemoveId,
+            numberOfBestChains = currHistory.numberOfBestChains,
+            blocks = currHistory.blocks - toRemoveId,
             blocksNodeInfo = newSons,
-            bestNChains = bestNChains,
+            bestNChains = currHistory.bestNChains,
             newOutputBlockLocations)
         }
         Success(newHistory -> Some(rollbackTo))
