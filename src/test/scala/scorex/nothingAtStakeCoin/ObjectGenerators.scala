@@ -62,10 +62,10 @@ trait ObjectGenerators {
 
   lazy val blockIdGenerator: Gen[ModifierId] = genBytesList(ModifierIdSize)
 
-  def nothingAtSakeCoinBlockGenerator(p: Option[ModifierId] = None): Gen[NothingAtStakeCoinBlock] = for {
-    coinAge: CoinAgeLength <- Gen.choose(0: Long, Long.MaxValue - 1)
+  def nothingAtSakeCoinBlockGenerator(p: Option[ModifierId] = None, ca: Option[CoinAgeLength] = None): Gen[NothingAtStakeCoinBlock] = for {
     key <- keyGenerator
     possibleTxs <- nothingAtStakeCoinTransactionSeqGenerator
+    coinAge = ca.getOrElse(Gen.choose(0: Long, Long.MaxValue - 1).sample.get)
     parentId = p.getOrElse(blockIdGenerator.sample.get)
     txs = possibleTxs.map(tx => if (tx.timestamp == Long.MaxValue) tx.copy(timestamp = Long.MaxValue - 1) else tx)
     coinStakeTx = emptyTx

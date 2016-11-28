@@ -195,8 +195,7 @@ class MinterSpec extends TestKit(ActorSystem("MinterSpec"))
       minterRef ! StartMinting
 
       Then("It should not generate a block")
-      //expectMsg(10 seconds, currentView)
-      probe.fishForMessage(10 seconds, "Waiting For New Block") {
+      probe.fishForMessage(10.seconds, "Waiting For New Block") {
         case LocallyGeneratedModifier(generatedBlock) => {
           val generatedTxs = generatedBlock.transactions.get.flatMap(t => t.asInstanceOf[NothingAtStakeCoinTransaction].to)
           generatedBlock.parentId.sameElements(genesisBlock.id) &&
