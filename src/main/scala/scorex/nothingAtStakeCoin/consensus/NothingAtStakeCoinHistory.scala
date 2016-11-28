@@ -104,12 +104,12 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
           //Remove txs from outputBlockLocations
           val blockToRemoveOutputs = blockToRemove.txs.flatMap(tx => tx.newBoxes.map(box => wrapId(box.id)))
           val newOutputBlockLocations = outputBlockLocations -- blockToRemoveOutputs
-
           //Remove blockToRemoveId
-          val newSons = currHistory.changeSons(wrapId(blockToRemove.parentId), blockId, isAdd = false).get
+          val toRemoveId = wrapId(blockToRemove.id)
+          val newSons = currHistory.changeSons(wrapId(blockToRemove.parentId), toRemoveId, isAdd = false).get
           NothingAtStakeCoinHistory(
             numberOfBestChains = numberOfBestChains,
-            blocks = blocks - blockId,
+            blocks = blocks - toRemoveId,
             blocksNodeInfo = newSons,
             bestNChains = bestNChains,
             newOutputBlockLocations)
@@ -154,7 +154,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
 
   // TODO We are not dealing with trolling nodes that might be sending wrong coinage to us as syncInfo
   override def compare(other: NothingAtStakeCoinSyncInfo): HistoryComparisonResult.Value = {
-    if(other.bestNChains.size < bestNChains.size) HistoryComparisonResult.Younger
+    if (other.bestNChains.size < bestNChains.size) HistoryComparisonResult.Younger
     else compareRecursive(HistoryComparisonResult.Equal, other.bestNChains)
   }
 

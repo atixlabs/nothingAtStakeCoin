@@ -6,14 +6,14 @@ import org.scalacheck.Gen
 import org.scalatest.{FeatureSpec, GivenWhenThen, Matchers}
 import scorex.core.NodeViewModifier
 import scorex.core.NodeViewModifier.ModifierId
-import scorex.core.block.Block.{BlockId, Timestamp}
+import scorex.core.block.Block.Timestamp
 import scorex.core.consensus.History.HistoryComparisonResult
 import scorex.core.transaction.state.PrivateKey25519
 import scorex.core.utils.ScorexLogging
 import scorex.crypto.encode.Base58
 import scorex.nothingAtStakeCoin.ObjectGenerators
+import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock
 import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock.CoinAgeLength
-import scorex.nothingAtStakeCoin.block.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion}
 import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction.{Nonce, Value}
@@ -41,8 +41,8 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
   def wrapId(bytes: Array[Byte]): ByteBuffer = ByteBuffer.wrap(bytes)
 
-  def generateHistory(blockNumber: Int): (NothingAtStakeCoinHistory, NothingAtStakeCoinBlock) = {
-    val emptyHistory = NothingAtStakeCoinHistory()
+  def generateHistory(blockNumber: Int, numberOfBestChains: Option[Int] = None): (NothingAtStakeCoinHistory, NothingAtStakeCoinBlock) = {
+    val emptyHistory = NothingAtStakeCoinHistory(numberOfBestChains = numberOfBestChains.getOrElse(this.numberOfBestChains))
     val genesisBlock = nothingAtSakeCoinBlockGenerator(Some(Array.fill(NodeViewModifier.ModifierIdSize)(1: Byte))).sample.get
     val historyWithOneBlock = insertBlock(emptyHistory, genesisBlock).get
     val historyWithNChains = (1 to blockNumber).foldLeft[NothingAtStakeCoinHistory](historyWithOneBlock) {
@@ -61,24 +61,24 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
     val txsTimestamp: Seq[Timestamp] = Gen.listOfN(numberOfTxsPerBlock, Gen.choose(lower, upper)).sample.get
     val txsValues: Seq[Value] = Gen.listOfN(numberOfTxsPerBlock, Gen.choose(0: Value, Long.MaxValue)).sample.get
     val txsData: Seq[((Timestamp, Value), Int)] = txsTimestamp.zip(txsValues).zipWithIndex
-    val txs: Seq[NothingAtStakeCoinTransaction] = txsData.foldLeft[Seq[NothingAtStakeCoinTransaction]](Seq()){
+    val txs: Seq[NothingAtStakeCoinTransaction] = txsData.foldLeft[Seq[NothingAtStakeCoinTransaction]](Seq()) {
       case (prevTxs, (pairTimestampValue, index)) =>
         val (timestamp, value) = pairTimestampValue
         NothingAtStakeCoinTransaction(
-          fromPk : PrivateKey25519,
-          IndexedSeq(index : Nonce),
+          fromPk: PrivateKey25519,
+          IndexedSeq(index: Nonce),
           IndexedSeq((fromPk.publicImage, value)),
-          0 : Long,
+          0: Long,
           timestamp
         ) +: prevTxs
     }
-    val historyWithBlock = insertBlock( NothingAtStakeCoinHistory(),
+    val historyWithBlock = insertBlock(NothingAtStakeCoinHistory(),
       NothingAtStakeCoinBlock(NothingAtStakeCoinBlock.GenesisBlockId, txTimestamp, fromPk, 0, emptyTx +: txs)).get
     (historyWithBlock, txsData, txs)
   }
 
   def insertBlock(history: NothingAtStakeCoinHistory, block: NothingAtStakeCoinBlock): Try[NothingAtStakeCoinHistory] = {
-    if(history.applicable(block)) history.append(block).map(_._1)
+    if (history.applicable(block)) history.append(block).map(_._1)
     else Success(history)
   }
 
@@ -151,7 +151,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       val emptyHistory = NothingAtStakeCoinHistory()
       val genesisBlock = nothingAtSakeCoinBlockGenerator(Some(Array.fill(NodeViewModifier.ModifierIdSize)(1: Byte))).sample.get
       val historyWithOneBlock = insertBlock(emptyHistory, genesisBlock).get
-      
+
       (1 to numberOfBestChains).foldLeft[NothingAtStakeCoinHistory](historyWithOneBlock) {
         case (prevHistory, _) =>
           When("adding new forks")
@@ -175,7 +175,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
     scenario("BlockChain forks and N chains limit is surpassed without recursive removal") {
       Given("a history with N chains")
-      val (historyWithNChains, genesisBlock) = generateHistory(numberOfBestChains)
+      val (historyWithNChains, genesisBlock) = generateHistory(numberOfBestChains, Some(numberOfBestChains))
 
       When("adding an extra block that causes the removal of a chain from history")
       val block = nothingAtSakeCoinBlockGenerator(Some(genesisBlock.id), Some(Long.MaxValue)).sample.get
@@ -204,9 +204,9 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       assert(historyWithBlockRemoved.blocksNodeInfo(wrapId(genesisBlock.id)).sons.length == numberOfBestChains)
     }
 
-    scenario("BlockChain forks with N chains and a block is appended to history with no effect due to its coin age"){
+    scenario("BlockChain forks with N chains and a block is appended to history with no effect due to its coin age") {
       Given("a history with N chains")
-      val (historyWithNChains, genesisBlock) = generateHistory(numberOfBestChains)
+      val (historyWithNChains, genesisBlock) = generateHistory(numberOfBestChains, Some(numberOfBestChains))
 
       When("adding an extra block that should cause no effect")
       val block = nothingAtSakeCoinBlockGenerator(Some(genesisBlock.id), Some(0)).sample.get
@@ -226,35 +226,24 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
     }
 
     scenario("BlockChain forks and N chains limit is surpassed with recursive removal") {
-      Given("a history of a long chain ")
-      val (historyWithTwoBlocks, genesisBlock) = generateHistory(1)
-      val numBlocks = 20
-      val (historyChain, lastBlock) = (1 to numBlocks).foldLeft[(NothingAtStakeCoinHistory, ModifierId)](historyWithTwoBlocks, genesisBlock.id) {
-        case ((prevHistory, prevBlockId), _) =>
-          val block = nothingAtSakeCoinBlockGenerator(Some(prevBlockId)).sample.get
-          val maybeNewHistory = insertBlock(prevHistory, block)
-          (maybeNewHistory.get, block.id)
-      }
+      Given("A created history with 2 best chains tracking")
+      val numberOfBestChains = 2
+      val (history, genesisBlock) = generateHistory(2, Some(numberOfBestChains))
 
-      When("appending numberOfBestChains blocks with higher coin age")
-      val newBlocks = genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(numberOfBestChains,
-        Some(genesisBlock.id), Some(Long.MaxValue)).sample.get
-      val history = newBlocks.foldLeft[NothingAtStakeCoinHistory](historyChain) {
-        case (prevHistory, block) =>
-          val maybeNewHistory = insertBlock(prevHistory, block)
-          maybeNewHistory.get
-      }
+      When("Appending two blocks to one of the best chains")
+      val newBlocksGen = nothingAtSakeCoinBlockGenerator(p = Some(history.bestNChains.head.array()), ca = Some(Long.MaxValue))
+      val block1 = newBlocksGen.sample.get
+      val block2 = newBlocksGen.sample.get
+      val afterAppendHistory = history.append(block1).get._1.append(block2).get._1
 
-      Then("the new history has only the genesis block and the last blocks appended")
-      val historyWithNChains = newBlocks.foldLeft[NothingAtStakeCoinHistory](historyWithTwoBlocks) {
-        case (prevHistory, block) =>
-          val maybeNewHistory = insertBlock(prevHistory, block)
-          maybeNewHistory.get
-      }
-      equalHistories(historyWithNChains, history)
+      Then("The new history should have the last 2 added blocks")
+      afterAppendHistory.blocks.size shouldEqual 4 // genesis, first child and 2 blocks manually added
+      afterAppendHistory.bestNChains.size shouldEqual numberOfBestChains // be the maxValue
+      afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block1.id)) shouldEqual true
+      afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block2.id)) shouldEqual true
     }
 
-    scenario("Append of a block already in history"){
+    scenario("Append of a block already in history") {
       Given("a history")
       val historyWithNChains = generateHistory(numberOfBestChains)._1
 
@@ -271,92 +260,69 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
     }
   }
 
-  /*feature("Blocks can be removed from history"){
-    scenario("Removal of a block not in history"){
-      Given("a history")
-      val history = generateHistory(numberOfBestChains)._1
-
-      When("a block is removed that is not on the history")
-      val blockToRemove = blockIdGenerator suchThat (blockId => history.blocks.get(wrapId(blockId)).isEmpty)
-      val maybeHistoryAfterRemove = history.removeBlock(Some(wrapId(blockToRemove.sample.get)))
-
-      Then("the removal failed")
-      assert(maybeHistoryAfterRemove.isFailure)
-    }
-
-    scenario("Removal of a block without the need of recursive calls"){
-      Given("a history")
-      val (history, genesisBlock) = generateHistory(numberOfBestChains)
-
-      val blocksToKeep = Seq(wrapId(genesisBlock.id), (history.blocks.keys.toSeq diff Seq(wrapId(genesisBlock.id))).head)
-      val blocksToRemove = (history.blocks.keys.toSeq diff Seq(wrapId(genesisBlock.id))).tail
-      val historyWithTwoBlocks =
-        blocksToRemove.foldLeft(history){
-          (prevHistory, blockToRemoveId) =>
-            When("a block is removed")
-            val blockToRemove = prevHistory.blocks(blockToRemoveId)
-            val maybeNewHistory = prevHistory.removeBlock(Some(blockToRemoveId))
-
-            Then("the block was removed")
-            assert(maybeNewHistory.isSuccess)
-            val newHistory = maybeNewHistory.get._1
-            assert(newHistory.blocks.get(blockToRemoveId).isEmpty)
-            assert(newHistory.blocksSons.get(blockToRemoveId).isEmpty)
-            assert(!newHistory.bestNChains.contains(blockToRemoveId))
-            assert(blockToRemove.txs.flatMap(tx => tx.from.map(box => wrapId(box.id)))
-              .forall(boxId => newHistory.outputBlockLocations.get(boxId).isEmpty))
-            newHistory
-          }
-      Then("only two blocks are left in history")
-      assert((historyWithTwoBlocks.blocks.keys.toSeq diff blocksToKeep).isEmpty)
-      assert((historyWithTwoBlocks.blocksSons.keys.toSeq diff blocksToKeep).isEmpty)
-      assert((historyWithTwoBlocks.bestNChains diff blocksToKeep).isEmpty)
-    }
-    
-    scenario("Removal of a block with the need of recursive calls") {
-      Given("a history")
-      val (historyWithTwoBlocks, genesisBlock) = generateHistory(1)
-      val numBlocks = 20
-      val (history, blockToRemove) = (1 to numBlocks).foldLeft[(NothingAtStakeCoinHistory, ModifierId)](historyWithTwoBlocks, genesisBlock.id) {
-        case ((prevHistory, prevBlockId), _) =>
-          val block = nothingAtSakeCoinBlockGenerator(Some(prevBlockId)).sample.get
-          val newHistory = insertBlock(prevHistory, block).get
-          val historyToBase58 = (h: NothingAtStakeCoinHistory) =>
-            h.outputBlockLocations.keys.map(b=>Base58.encode(b.array)).toSeq
-          (newHistory, block.id)
+  feature("After appending, history removes a set of blocks to return to Minimal State") {
+    scenario("Branch prune is performed when other blocks are created") {
+      /**
+        * History graph
+        *                   /---[B7}
+        *           /---[B1]
+        *          /        \---[NEW_BLOCK_TO_ADD that will remove B4]
+        *   Genesis
+        *          \                  /---[B6]
+        *           \---[B2]---[b3]---
+        *                             \---[B4]---[B5]
+        */
+      Given("A created history with 3 best chains tracking")
+      val numberOfBestChains = 3
+      val (history, genesisBlock) = generateHistory(0, Some(numberOfBestChains))
+      val newBlocksGen = nothingAtSakeCoinBlockGenerator(p = Some(genesisBlock.id), ca = Some(Long.MaxValue - 100))
+      val block1 = newBlocksGen.sample.get
+      val block2 = newBlocksGen.sample.get
+      val block3 = nothingAtSakeCoinBlockGenerator(p = Some(block2.id), ca = Some(Long.MaxValue - 50)).sample.get
+      val block4 = nothingAtSakeCoinBlockGenerator(p = Some(block3.id), ca = Some(Long.MaxValue - 25)).sample.get
+      val block5 = nothingAtSakeCoinBlockGenerator(p = Some(block4.id), ca = Some(Long.MaxValue - 10)).sample.get
+      val block6 = nothingAtSakeCoinBlockGenerator(p = Some(block3.id), ca = Some(Long.MaxValue - 5)).sample.get
+      val block7 = nothingAtSakeCoinBlockGenerator(p = Some(block1.id), ca = Some(Long.MaxValue)).sample.get
+      val beforeAppendHistory = Seq(block1, block2, block3, block4, block5, block6, block7).foldLeft[NothingAtStakeCoinHistory](history) { (h, b) =>
+        h.append(b).get._1
       }
 
-      When("the block of the longest chain is removed")
-      val maybeHistoryAfterRemove = history.removeBlock(Some(wrapId(blockToRemove)))
+      When("Appending two blocks to one of the best chains")
+      val block8 = nothingAtSakeCoinBlockGenerator(p = Some(block1.id), ca = Some(Long.MaxValue)).sample.get
+      val afterAppendHistory = beforeAppendHistory.append(block8).get._1
 
-      Then("the chain was removed and only the original 2 blocks remain")
-      assert(maybeHistoryAfterRemove.isSuccess)
-      val historyAfterRemove = maybeHistoryAfterRemove.get._1
-      equalHistories(historyAfterRemove, historyWithTwoBlocks)
+      When("Appending two blocks to one of the best chains")
+
+      Then("The new history should have the last 2 added blocks")
+      afterAppendHistory.blocks.size shouldEqual 7 // genesis, B2, B3, B1, B7, B8
+      afterAppendHistory.bestNChains.size shouldEqual numberOfBestChains // be the maxValue
+      afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block6.id)) shouldEqual true
+      afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block7.id)) shouldEqual true
+      afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block8.id)) shouldEqual true
     }
-  }*/
+  }
 
-  feature("tx coin age is correctly calculated"){
-    scenario("tx input are all between the STAKE_MIN_AGE and STAKE_MAX_AGE period"){
+  feature("tx coin age is correctly calculated") {
+    scenario("tx input are all between the STAKE_MIN_AGE and STAKE_MAX_AGE period") {
       Given("a history with one block")
       val STAKE_MIN_AGE = NothingAtStakeCoinHistory.STAKE_MIN_AGE
       val STAKE_MAX_AGE = NothingAtStakeCoinHistory.STAKE_MAX_AGE
       val fromPk = keyGenerator.sample.get._1
       val txTimestamp = STAKE_MAX_AGE
-      val (historyWithBlock, txsData, txs) = historyOneBlockWithTxs(0, STAKE_MAX_AGE-STAKE_MIN_AGE, fromPk, txTimestamp)
+      val (historyWithBlock, txsData, txs) = historyOneBlockWithTxs(0, STAKE_MAX_AGE - STAKE_MIN_AGE, fromPk, txTimestamp)
 
       When("a tx from the outputs of the block is created")
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
-        txs.flatMap(t=>t.newBoxes.map(b=>b.nonce)).toIndexedSeq,
+        txs.flatMap(t => t.newBoxes.map(b => b.nonce)).toIndexedSeq,
         IndexedSeq((fromPk.publicImage, 100: Value)),
-        0 : Long,
+        0: Long,
         STAKE_MAX_AGE
       )
 
       Then("the coin age of the tx obtained with getCoinAge is correct")
-      val txCoinAge = txsData.foldLeft[CoinAgeLength](0){
-        case (prevCoinAge, txData) => prevCoinAge + (txTimestamp-txData._1._1) * txData._1._2 / NothingAtStakeCoinHistory.CENT
+      val txCoinAge = txsData.foldLeft[CoinAgeLength](0) {
+        case (prevCoinAge, txData) => prevCoinAge + (txTimestamp - txData._1._1) * txData._1._2 / NothingAtStakeCoinHistory.CENT
       } * NothingAtStakeCoinHistory.CENT / NothingAtStakeCoinHistory.COIN / (24 * 60 * 60)
       val maybeTxCoinAgeInHistory = historyWithBlock.getCoinAge(newTx)
       assert(maybeTxCoinAgeInHistory.isSuccess)
@@ -364,28 +330,28 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       assert(txCoinAge == txCoinAgeInHistory)
     }
 
-    scenario("some tx are below STAKE_MIN_AGE"){
+    scenario("some tx are below STAKE_MIN_AGE") {
       Given("a history with one block")
       val STAKE_MIN_AGE = NothingAtStakeCoinHistory.STAKE_MIN_AGE
       val STAKE_MAX_AGE = NothingAtStakeCoinHistory.STAKE_MAX_AGE
       val fromPk = keyGenerator.sample.get._1
-      val txTimestamp = STAKE_MAX_AGE-STAKE_MIN_AGE
-      val (historyWithBlock, txsData, txs) = historyOneBlockWithTxs(0, STAKE_MAX_AGE-STAKE_MIN_AGE, fromPk, txTimestamp)
+      val txTimestamp = STAKE_MAX_AGE - STAKE_MIN_AGE
+      val (historyWithBlock, txsData, txs) = historyOneBlockWithTxs(0, STAKE_MAX_AGE - STAKE_MIN_AGE, fromPk, txTimestamp)
 
       When("a tx from the outputs of the block is created")
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
         txs.flatMap(tx => tx.newBoxes.map(box => box.nonce)).toIndexedSeq,
         IndexedSeq((fromPk.publicImage, 100: Value)),
-        0 : Long,
+        0: Long,
         txTimestamp
       )
 
       Then("the coin age of the tx obtained with getCoinAge is correct")
-      val txCoinAge = txsData.foldLeft[CoinAgeLength](0){
-        case (prevCoinAge, txData) if txTimestamp-txData._1._1 < STAKE_MIN_AGE => prevCoinAge
-        case (prevCoinAge, txData) if txTimestamp-txData._1._1 >= STAKE_MIN_AGE =>
-          prevCoinAge + (txTimestamp-txData._1._1) * txData._1._2 / NothingAtStakeCoinHistory.CENT
+      val txCoinAge = txsData.foldLeft[CoinAgeLength](0) {
+        case (prevCoinAge, txData) if txTimestamp - txData._1._1 < STAKE_MIN_AGE => prevCoinAge
+        case (prevCoinAge, txData) if txTimestamp - txData._1._1 >= STAKE_MIN_AGE =>
+          prevCoinAge + (txTimestamp - txData._1._1) * txData._1._2 / NothingAtStakeCoinHistory.CENT
       } * NothingAtStakeCoinHistory.CENT / NothingAtStakeCoinHistory.COIN / (24 * 60 * 60)
       val maybeTxCoinAgeInHistory = historyWithBlock.getCoinAge(newTx)
       assert(maybeTxCoinAgeInHistory.isSuccess)
@@ -393,26 +359,26 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       assert(txCoinAge == txCoinAgeInHistory)
     }
 
-    scenario("some tx are greater than STAKE_MAX_AGE"){
+    scenario("some tx are greater than STAKE_MAX_AGE") {
       Given("a history with one block")
       val STAKE_MIN_AGE = NothingAtStakeCoinHistory.STAKE_MIN_AGE
       val STAKE_MAX_AGE = NothingAtStakeCoinHistory.STAKE_MAX_AGE
       val fromPk = keyGenerator.sample.get._1
-      val txTimestamp = STAKE_MAX_AGE + 2*STAKE_MIN_AGE
+      val txTimestamp = STAKE_MAX_AGE + 2 * STAKE_MIN_AGE
       val (historyWithBlock, txsData, txs) = historyOneBlockWithTxs(0, STAKE_MAX_AGE + STAKE_MIN_AGE, fromPk, txTimestamp)
 
       When("a tx from the outputs of the block is created")
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
-        txs.flatMap(t=>t.newBoxes.map(b=>b.nonce)).toIndexedSeq,
+        txs.flatMap(t => t.newBoxes.map(b => b.nonce)).toIndexedSeq,
         IndexedSeq((fromPk.publicImage, 100: Value)),
-        0 : Long,
+        0: Long,
         txTimestamp
       )
 
       Then("the coin age of the tx obtained with getCoinAge is correct")
-      val txCoinAge = txsData.foldLeft[CoinAgeLength](0){ case (prevCoinAge, txData) =>
-        val diffTim = txTimestamp-txData._1._1 match{
+      val txCoinAge = txsData.foldLeft[CoinAgeLength](0) { case (prevCoinAge, txData) =>
+        val diffTim = txTimestamp - txData._1._1 match {
           case diffTimestamp if diffTimestamp > STAKE_MAX_AGE => STAKE_MAX_AGE
           case diffTimestamp if diffTimestamp <= STAKE_MAX_AGE => diffTimestamp
         }
@@ -520,7 +486,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       assert(comparisonResult2 == HistoryComparisonResult.Younger)
     }
 
-    scenario("Comparing histories with different lengths of their bestNChains"){
+    scenario("Comparing histories with different lengths of their bestNChains") {
       Given("There is a history2")
       val (history2, genesisBlock) = generateHistory(numberOfBestChains - 1)
       Given("A block is added resulting in history1")
@@ -539,7 +505,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       assert(comparisonResult2 == HistoryComparisonResult.Older)
     }
 
-    scenario("Comparing histories with the same length of their bestNChains but with different blocks in them"){
+    scenario("Comparing histories with the same length of their bestNChains but with different blocks in them") {
       Given("There is a history")
       val (history, genesisBlock) = generateHistory(numberOfBestChains - 1)
       Given("A block is added resulting in history1")
