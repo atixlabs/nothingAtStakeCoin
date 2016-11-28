@@ -93,7 +93,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
         val commonParent: ByteBuffer = findCommonParent((bestNChains :+ blockId).toSet)
         val allBlockFromParent = continuationRecursive(Seq(), blocksNodeInfo(commonParent).sons)
         // We will only remove blocks from leaf to parent that do not have any other sons, which means, they can be removed
-        val blocksToRemove = nodesToRemove(Seq(), blockId, commonParent).map(toRemove => blockById(toRemove).get)
+        val blocksToRemove = nodesToRemove(Seq(), blockId, commonParent).reverse.map(toRemove => blockById(toRemove).get)
         val blocksToAdd = allBlockFromParent.foldLeft(Seq[NothingAtStakeCoinBlock]()) { (acum, blockFromParent) =>
           if (blocksToRemove.exists(tr => tr.id sameElements blockFromParent._2)) acum
           else acum :+ blockById(blockFromParent._2).get
