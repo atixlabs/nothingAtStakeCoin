@@ -160,7 +160,10 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     NothingAtStakeCoinSyncInfo(answer, bestNChains.flatMap(id => blockById(id)).map(block => block.id -> block.coinAge))
 
   // TODO We are not dealing with trolling nodes that might be sending wrong coinage to us as syncInfo
-  override def compare(other: NothingAtStakeCoinSyncInfo): HistoryComparisonResult.Value = compareRecursive(HistoryComparisonResult.Equal, other.bestNChains)
+  override def compare(other: NothingAtStakeCoinSyncInfo): HistoryComparisonResult.Value = {
+    if(other.bestNChains.size < bestNChains.size) HistoryComparisonResult.Younger
+    else compareRecursive(HistoryComparisonResult.Equal, other.bestNChains)
+  }
 
   override type NVCT = this.type
 
@@ -226,20 +229,22 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
   }
 
   @tailrec
-  private def compareRecursive(comparisonResult: HistoryComparisonResult.Value, bestNChains: List[(BlockId, CoinAgeLength)]): History.HistoryComparisonResult.Value = {
+  private def compareRecursive(comparisonResult: HistoryComparisonResult.Value, otherBestNChains: List[(BlockId, CoinAgeLength)]): History.HistoryComparisonResult.Value = {
     // This consensus algorithm tries to find if the other node has at least a younger branch (not included in best chains)
     // in order to let the peers receive them
-    if (bestNChains.isEmpty) return comparisonResult
+    if (otherBestNChains.isEmpty) return comparisonResult
 
     comparisonResult match {
       case HistoryComparisonResult.Younger => comparisonResult
-      case (HistoryComparisonResult.Equal | HistoryComparisonResult.Older) if bestNChains.nonEmpty =>
-        val itemToCompare = bestNChains.head
+      case (HistoryComparisonResult.Equal | HistoryComparisonResult.Older) if otherBestNChains.nonEmpty =>
+        val itemToCompare = otherBestNChains.head
         val maybeOurBlockNumberOfSons = blocksNodeInfo.get(wrapId(itemToCompare._1))
         (maybeOurBlockNumberOfSons, itemToCompare) match {
           case (Some(blockNodeInfo), _) if blockNodeInfo.sons.nonEmpty => HistoryComparisonResult.Younger
-          case (Some(blockNodeInfo), _) if blockNodeInfo.sons.isEmpty => compareRecursive(comparisonResult, bestNChains.tail)
-          case (None, (_, coinAge: CoinAgeLength)) => if (belongsToBestN(coinAge)) compareRecursive(HistoryComparisonResult.Older, bestNChains.tail) else compareRecursive(comparisonResult, bestNChains)
+          case (Some(blockNodeInfo), _) if blockNodeInfo.sons.isEmpty => compareRecursive(comparisonResult, otherBestNChains.tail)
+          case (None, (_, coinAge: CoinAgeLength)) =>
+            if (belongsToBestN(coinAge)) compareRecursive(HistoryComparisonResult.Older, otherBestNChains.tail)
+            else HistoryComparisonResult.Younger
         }
     }
   }
