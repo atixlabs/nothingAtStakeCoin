@@ -77,43 +77,48 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
             .getOrElse(blocksNodeInfo + (wrapId(block.id) -> BlockNodeInfo(levelsFromRoot = 0))) // It's genesis block
           val newOutputBlockLocations = outputBlockLocations ++ outputBlockLocationSeq(block)
           NothingAtStakeCoinHistory(numberOfBestChains, newBlocks, newBlocksSons, newBestN, newOutputBlockLocations) //Obtain newHistory with newInfo
-            .removeBlock(blockIdToRemove) //Remove blockToRemove
+            .removeBlockFromHistory(blockIdToRemove) //Remove blockToRemove
         } else {
           Failure(new Exception("Block does not verify requirements"))
         }
     }
   }
 
-  @tailrec
-  private def removeBlock(blockToRemoveId: Option[ByteBuffer]): Try[(NothingAtStakeCoinHistory, Option[RollbackTo[NothingAtStakeCoinBlock]])] = blockToRemoveId match {
-    case Some(blockId) =>
-      if (blocks.get(blockId).isDefined && blocks.get(wrapId(blocks(blockId).parentId)).isDefined) {
-        //Remove txs from outputBlockLocations
-        val blockToRemove = blocks(blockId)
-        val blockToRemoveOutputs = blockToRemove.txs.flatMap(tx => tx.newBoxes.map(box => wrapId(box.id)))
-        val newOutputBlockLocations = outputBlockLocations -- blockToRemoveOutputs
-
-        //Remove blockToRemoveId
-        val parentId = wrapId(blockToRemove.parentId)
-        val historyWithoutBlock = changeSons(parentId, blockId, isAdd = false)
-          .map[NothingAtStakeCoinHistory](newSons => NothingAtStakeCoinHistory(
-          numberOfBestChains = numberOfBestChains,
-          blocks = blocks - blockId,
-          blocksNodeInfo = newSons,
-          bestNChains = bestNChains.filterNot(id => id == blockId),
-          newOutputBlockLocations))
-
-        //Remove parent if necessary
-        historyWithoutBlock match {
-          case Success(h: NothingAtStakeCoinHistory) if h.blocksNodeInfo(parentId).sons.nonEmpty => Success(h, None)
-          case Success(h: NothingAtStakeCoinHistory) if h.blocksNodeInfo(parentId).sons.isEmpty => h.removeBlock(Some(parentId))
-          case Failure(e) => Failure(e)
+  private def removeBlockFromHistory(blockIdToRemove: Option[ByteBuffer]): Try[(NothingAtStakeCoinHistory, Option[RollbackTo[NothingAtStakeCoinBlock]])] = {
+    blockIdToRemove match {
+      // In order to be able to rollback to a specific version, we need to find the lower common ancestor of the new
+      // best N chains and the old bestNChain branch to be removed. Then, we will re add all of them and remove all
+      // blocks that can be removed from the removed node branch
+      case Some(blockId) => {
+        val commonParent: ByteBuffer = findCommonParent(bestNChains :+ blockId, None)
+        val allBlockFromParent = continuationRecursive(Seq(), blocksNodeInfo(commonParent).sons)
+        // We will only remove blocks from leaf to parent that do not have any other sons, which means, they can be removed
+        val blocksToRemove = nodesInfoUntilParent(Seq(), blockId, commonParent)
+          .filter(toRemove => toRemove._2.sons.isEmpty).map(toRemove => blockById(toRemove._1).get)
+        val blocksToAdd = allBlockFromParent.foldLeft(Seq[NothingAtStakeCoinBlock]()) { (acum, blockFromParent) =>
+          if (blocksToRemove.exists(tr => tr.id sameElements blockFromParent._2)) acum
+          else acum :+ blockById(blockFromParent._2).get
         }
+        val rollbackTo = RollbackTo(to = commonParent.array(), thrown = blocksToRemove, applied = blocksToAdd)
+        val newHistory = blocksToRemove.foldLeft[NothingAtStakeCoinHistory](this) { (currHistory: NothingAtStakeCoinHistory, blockToRemove: NothingAtStakeCoinBlock) =>
+          //Remove txs from outputBlockLocations
+          val blockToRemoveOutputs = blockToRemove.txs.flatMap(tx => tx.newBoxes.map(box => wrapId(box.id)))
+          val newOutputBlockLocations = outputBlockLocations -- blockToRemoveOutputs
+
+          //Remove blockToRemoveId
+          val newSons = currHistory.changeSons(wrapId(blockToRemove.parentId), blockId, isAdd = false).get
+          NothingAtStakeCoinHistory(
+            numberOfBestChains = numberOfBestChains,
+            blocks = blocks - blockId,
+            blocksNodeInfo = newSons,
+            bestNChains = bestNChains,
+            newOutputBlockLocations)
+        }
+        Success(newHistory -> Some(rollbackTo))
       }
-      else {
-        Failure(new Exception("remove: Block to remove or parent not found"))
-      }
-    case None => Success((this, None))
+      case None => Success(this -> None)
+    }
+
   }
 
   override def applicable(block: NothingAtStakeCoinBlock): Boolean = {
@@ -135,21 +140,9 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     require(from.size == 1)
     require(from.head._1 == NothingAtStakeCoinBlock.ModifierTypeId)
 
-    @tailrec
-    def continuationRecursive(acum: Seq[(ModifierTypeId, ModifierId)], sons: List[ByteBuffer], size: Int): Seq[(ModifierTypeId, ModifierId)] = {
-      if (sons.isEmpty || acum.size == size) acum
-      else {
-        blocksNodeInfo.get(sons.head) match {
-          case None => acum
-          case Some(headSonBlockInfo) if headSonBlockInfo.sons.nonEmpty => continuationRecursive(acum :+ (NothingAtStakeCoinBlock.ModifierTypeId -> sons.head.array()), headSonBlockInfo.sons ++ sons.tail, size)
-          case Some(headSonBlockInfo) if headSonBlockInfo.sons.isEmpty => continuationRecursive(acum :+ (NothingAtStakeCoinBlock.ModifierTypeId -> sons.head.array()), sons.tail, size)
-        }
-      }
-    }
-
     val found = from.flatMap(item => {
       blocksNodeInfo.get(wrapId(item._2)) match {
-        case Some(blockNodeInfo) => continuationRecursive(Seq(), blockNodeInfo.sons, size)
+        case Some(blockNodeInfo) => continuationRecursive(Seq(), blockNodeInfo.sons)
         case None => Seq()
       }
     })
@@ -214,7 +207,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
   private def changeSons(parentId: ByteBuffer, sonId: ByteBuffer, isAdd: Boolean): Try[Map[ByteBuffer, BlockNodeInfo]] = {
     blocksNodeInfo.get(parentId) match {
       case Some(blockNodeInfo: BlockNodeInfo) =>
-        if(isAdd) {
+        if (isAdd) {
           Success(blocksNodeInfo + (parentId -> blockNodeInfo.copy(sons = blockNodeInfo.sons :+ sonId)) + (sonId -> BlockNodeInfo(levelsFromRoot = blockNodeInfo.levelsFromRoot + 1)))
         } else {
           val newSons = blockNodeInfo.sons.filter(son => son != sonId)
@@ -301,6 +294,48 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     val reward: Try[Value] = getStakeReward(stakeTx.from, stakeTx.timestamp)
     val correctInputOutputQuantities = totalInput.isSuccess && reward.isSuccess && totalInput.get + reward.get == totalOutput
     inputFromMinter && outputToMinter && correctInputOutputQuantities
+  }
+
+  @tailrec
+  private def findCommonParent(ids: List[ByteBuffer], commonId: Option[ByteBuffer]): ByteBuffer = {
+    commonId match {
+      case Some(foundId) => foundId
+      case None => {
+        val parents = ids.flatMap(id => blockById(id)).map(b => ByteBuffer.wrap(b.parentId)).toSet
+        if (parents.size == 1) findCommonParent(ids, Some(parents.head)) // If all items have the same parent, we have found it!
+        else {
+          val maxDistanceToGenesisOne: (ByteBuffer, BlockIndexLength) = ids.map(id => id -> blocksNodeInfo(id).levelsFromRoot).maxBy(_._2)
+          val maxDistanceBlock = blockById(maxDistanceToGenesisOne._1).get
+          val maxDistanceBlockId = wrapId(maxDistanceBlock.id)
+          // Add parent, remove son and iterate again
+          val nextIterationIds = ids.filter(id => id != maxDistanceBlockId) :+ wrapId(maxDistanceBlock.parentId)
+          findCommonParent(nextIterationIds, commonId)
+        }
+      }
+    }
+  }
+
+  /**
+    * Returns all the tuple id -> blockNodeInfo between a child to a parent. It assumes both child and parent do exist
+    * in the history
+    */
+  @tailrec
+  private def nodesInfoUntilParent(nodesInfo: Seq[(ByteBuffer, BlockNodeInfo)], from: ByteBuffer, to: ByteBuffer): Seq[(ByteBuffer, BlockNodeInfo)] = {
+    if (from == to) return nodesInfo
+    val block = blockById(from).get
+    nodesInfoUntilParent(nodesInfo :+ from -> blocksNodeInfo(from), wrapId(block.parentId), to)
+  }
+
+  @tailrec
+  private def continuationRecursive(acum: Seq[(ModifierTypeId, ModifierId)], sons: List[ByteBuffer]): Seq[(ModifierTypeId, ModifierId)] = {
+    if (sons.isEmpty) acum
+    else {
+      blocksNodeInfo.get(sons.head) match {
+        case None => acum
+        case Some(headSonBlockInfo) if headSonBlockInfo.sons.nonEmpty => continuationRecursive(acum :+ (NothingAtStakeCoinBlock.ModifierTypeId -> sons.head.array()), headSonBlockInfo.sons ++ sons.tail)
+        case Some(headSonBlockInfo) if headSonBlockInfo.sons.isEmpty => continuationRecursive(acum :+ (NothingAtStakeCoinBlock.ModifierTypeId -> sons.head.array()), sons.tail)
+      }
+    }
   }
 
   private def wrapId(bytes: Array[Byte]): ByteBuffer = ByteBuffer.wrap(bytes)
