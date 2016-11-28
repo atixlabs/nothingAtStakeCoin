@@ -31,6 +31,7 @@ case class NothingAtStakeCoinBlock(override val parentId: ModifierId,
     Seq[NothingAtStakeCoinTransaction] :: HNil
 
   override type M = NothingAtStakeCoinBlock
+  type C = NothingAtStakeCoinBlockCompanion.type
 
   override val modifierTypeId: ModifierTypeId = NothingAtStakeCoinBlock.ModifierTypeId
 
@@ -42,7 +43,7 @@ case class NothingAtStakeCoinBlock(override val parentId: ModifierId,
 
   override def id: ModifierId = FastCryptographicHash(companion.bytes(this))
 
-  override def companion = NothingAtStakeCoinBlockCompanion
+  override def companion: C = NothingAtStakeCoinBlockCompanion
 
   override def json: Json = Map(
     "id" -> idAsString().asJson,
@@ -54,7 +55,7 @@ case class NothingAtStakeCoinBlock(override val parentId: ModifierId,
     "txs" -> txs.map(_.json).asJson
   ).asJson
 
-  def idAsString() = Base58.encode(id)
+  def idAsString(): String = Base58.encode(id)
 }
 
 object NothingAtStakeCoinBlock {

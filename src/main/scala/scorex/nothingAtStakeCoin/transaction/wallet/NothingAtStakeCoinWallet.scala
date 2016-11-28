@@ -26,7 +26,8 @@ case class NothingAtStakeCoinWallet(settings: Settings)
   val password: String = settings.walletPassword
   val seed: Array[Byte] = settings.walletSeed
 
-  private lazy val dbSecret: (PrivateKey25519, PublicKey25519Proposition) = PrivateKey25519Companion.generateKeys(DoubleCryptographicHash(Bytes.concat(Base64.decode(password), seed)))
+  private lazy val dbSecret: (PrivateKey25519, PublicKey25519Proposition) =
+    PrivateKey25519Companion.generateKeys(DoubleCryptographicHash(Bytes.concat(Base64.decode(password), seed)))
 
   override def generateNewSecret(): NothingAtStakeCoinWallet = {
     NothingAtStakeCoinWallet(settings)

@@ -12,12 +12,15 @@ import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock.CoinAgeLength
 import scala.util.Try
 
 case class NothingAtStakeCoinSyncInfo(answer: Boolean, bestNChains: List[(BlockId, CoinAgeLength)]) extends SyncInfo {
-  override def startingPoints: Seq[(ModifierTypeId, ModifierId)] = bestNChains.map { case (blockId: BlockId, _) => (NothingAtStakeCoinBlock.ModifierTypeId, blockId) }
+
+  override def startingPoints: Seq[(ModifierTypeId, ModifierId)] =
+    bestNChains.map { case (blockId: BlockId, _) => (NothingAtStakeCoinBlock.ModifierTypeId, blockId) }
 
   override def bytes: Array[Byte] = (if (answer) Array(1: Byte) else Array(0: Byte)) ++ bestNChains.foldLeft(Array[Byte]()) {
     (array, item) => {
       array ++ (item match {
-        case (blockId: BlockId, coinAge: CoinAgeLength) => blockId ++ ByteBuffer.allocate(NothingAtStakeCoinBlock.CoinAgeLengthSize).putLong(coinAge).array()
+        case (blockId: BlockId, coinAge: CoinAgeLength) =>
+          blockId ++ ByteBuffer.allocate(NothingAtStakeCoinBlock.CoinAgeLengthSize).putLong(coinAge).array()
       })
     }
   }

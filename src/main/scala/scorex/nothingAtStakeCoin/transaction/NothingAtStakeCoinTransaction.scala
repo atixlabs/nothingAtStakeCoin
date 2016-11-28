@@ -159,7 +159,8 @@ object NothingAtStakeCoinNodeNodeViewModifierCompanion extends NodeViewModifierC
     val unspentsToUse: (Long, Seq[PublicKey25519NoncedBox]) = findUnspentsToPay(totalAmountToSend, state.boxesOf(sender), 0, Seq())
 
     val propositions = unspentsToUse match {
-      case (unspentsAmount, boxes) if unspentsAmount > totalAmountToSend => toPropositions :+ (PublicKey25519Proposition.validPubKey(from).get, unspentsToUse._1 - totalAmountToSend)
+      case (unspentsAmount, boxes) if unspentsAmount > totalAmountToSend =>
+        toPropositions :+ (PublicKey25519Proposition.validPubKey(from).get, unspentsToUse._1 - totalAmountToSend)
       case (unspentsAmount, boxes) if unspentsAmount == totalAmountToSend => toPropositions
       case (unspentsAmount, boxes) if unspentsAmount < totalAmountToSend => throw new Exception("Not Enough funds to spend")
     }
@@ -174,7 +175,8 @@ object NothingAtStakeCoinNodeNodeViewModifierCompanion extends NodeViewModifierC
   }
 
   @tailrec
-  private def findUnspentsToPay(totalAmountToSend: Value, boxes: Seq[PublicKey25519NoncedBox], acum: Long, boxesToUse: Seq[PublicKey25519NoncedBox]): (Long, Seq[PublicKey25519NoncedBox]) = {
+  private def findUnspentsToPay(totalAmountToSend: Value, boxes: Seq[PublicKey25519NoncedBox], acum: Long, boxesToUse: Seq[PublicKey25519NoncedBox]):
+  (Long, Seq[PublicKey25519NoncedBox]) = {
     acum match {
       case _ if acum >= totalAmountToSend || boxes.isEmpty => (acum, boxesToUse)
       case _ if acum < totalAmountToSend => findUnspentsToPay(totalAmountToSend, boxes.tail, acum + boxes.head.value, boxesToUse :+ boxes.head)

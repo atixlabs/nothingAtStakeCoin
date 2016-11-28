@@ -18,13 +18,11 @@ case class NothingAtStakeCoinMinimalState(
                                            history: Map[VersionTag, NothingAtStakeCoinMinimalState] = Map(),
                                            boxes: Map[ByteBuffer, PublicKey25519NoncedBox]
                                          )
-  extends BoxMinimalState[
-    PublicKey25519Proposition,
+  extends BoxMinimalState[PublicKey25519Proposition,
     PublicKey25519NoncedBox,
     NothingAtStakeCoinTransaction,
     NothingAtStakeCoinBlock,
-    NothingAtStakeCoinMinimalState
-    ] {
+    NothingAtStakeCoinMinimalState] {
 
   override def semanticValidity(tx: NothingAtStakeCoinTransaction): Try[Unit] = Success(Unit)
 
@@ -47,7 +45,8 @@ case class NothingAtStakeCoinMinimalState(
     }
   }
 
-  override def applyChanges(changes: StateChanges[PublicKey25519Proposition, PublicKey25519NoncedBox], newVersion: VersionTag): Try[NothingAtStakeCoinMinimalState] = {
+  override def applyChanges(changes: StateChanges[PublicKey25519Proposition, PublicKey25519NoncedBox], newVersion: VersionTag):
+  Try[NothingAtStakeCoinMinimalState] = {
     val afterRemoval = changes.boxIdsToRemove.foldLeft(boxes) { case (newBoxes, idToRemove) => newBoxes - ByteBuffer.wrap(idToRemove) }
     val afterAppending = changes.toAppend.foldLeft(afterRemoval) { case (newBoxes, toAdd) => newBoxes + (ByteBuffer.wrap(toAdd.id) -> toAdd) }
     Success(NothingAtStakeCoinMinimalState(newVersion, history + (this.version -> this), afterAppending))

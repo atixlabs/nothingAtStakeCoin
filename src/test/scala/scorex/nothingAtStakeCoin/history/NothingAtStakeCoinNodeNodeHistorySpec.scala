@@ -262,6 +262,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
   feature("After appending, history removes a set of blocks to return to Minimal State") {
     scenario("Branch prune is performed when other blocks are created") {
+      // @formatter:off
       /**
         * History graph
         *                   /---[B7}
@@ -272,6 +273,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
         *           \---[B2]---[b3]---
         *                             \---[B4]---[B5]
         */
+      // @formatter:on
       Given("A created history with 3 best chains tracking")
       val numberOfBestChains = 3
       val (history, genesisBlock) = generateHistory(0, Some(numberOfBestChains))

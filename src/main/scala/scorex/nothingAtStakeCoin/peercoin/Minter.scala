@@ -13,9 +13,9 @@ import scorex.nothingAtStakeCoin.peercoin.Minter.{MintLoop, StartMinting, StopMi
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction._
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinInput, NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
 import scorex.nothingAtStakeCoin.transaction.state.NothingAtStakeCoinMinimalState
 import scorex.nothingAtStakeCoin.transaction.wallet.NothingAtStakeCoinWallet
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinInput, NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -27,23 +27,25 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
   private val minterLoopDelay = 5000 millisecond
 
   def stopped: Receive = {
-    case StartMinting => {
+    case StartMinting =>
       context become minting
       self ! MintLoop
-    }
   }
 
   def minting: Receive = {
     case StopMiniting => context become stopped
-    case MintLoop => {
+    case MintLoop =>
       log.info("[MintLoop] Start, asking nodeViewHolder it's current view")
       viewHolderRef ! NodeViewHolder.GetCurrentView
-    }
-    case CurrentView(history: NothingAtStakeCoinHistory, minimalState: NothingAtStakeCoinMinimalState, wallet: NothingAtStakeCoinWallet, memoryPool: NothingAtStakeCoinMemoryPool) => {
+    case CurrentView(
+    history: NothingAtStakeCoinHistory,
+    minimalState: NothingAtStakeCoinMinimalState,
+    wallet: NothingAtStakeCoinWallet,
+    memoryPool: NothingAtStakeCoinMemoryPool) =>
       log.info("[MintLoop] Current view received")
       if (!history.isEmpty) {
         val block: Option[NothingAtStakeCoinBlock] = memoryPool.take(settings.transactionsPerBlock).filter(minimalState.isValid) match {
-          case txs: Iterable[NothingAtStakeCoinTransaction] if txs.size == settings.transactionsPerBlock => {
+          case txs: Iterable[NothingAtStakeCoinTransaction] if txs.size == settings.transactionsPerBlock =>
             log.info(s"[MintLoop] Transactions ${txs.size}  found")
             val coinStakeBoxes = getCoinStakeBoxes(wallet, minimalState, txs).toSeq
             log.info(s"[MintLoop] ${coinStakeBoxes.size} coinstake boxes found")
@@ -59,28 +61,24 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
               log.info("[MintLoop] No stake to mint found")
               None
             }
-          }
           case txs: Iterable[NothingAtStakeCoinTransaction] => None
         }
 
         if (block.isDefined) {
-          log.info(s"[MintLoop] Generated block! ${block}")
+          log.info(s"[MintLoop] Generated block! ${block.get.idAsString()}")
           viewHolderRef ! LocallyGeneratedModifier.apply[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock](block.get)
-          log.info(s"[MintLoop] Block sent to view holder ${block}")
+          log.info(s"[MintLoop] Block sent to view holder ${block.get.idAsString()}")
         } else {
           log.info("[MintLoop] No block generated")
         }
         context.system.scheduler.scheduleOnce(minterLoopDelay, self, MintLoop)
       }
-    }
   }
 
   /**
     * This method gets from minimal state all boxes that can be used in coinstake tx as input, ie, the ones that are
     * not being used as input in the current transaction
     *
-    * @param minimalState
-    * @param txs
     * @return Boxes that can be used in minting process
     */
   def getCoinStakeBoxes(wallet: NothingAtStakeCoinWallet,
@@ -102,14 +100,14 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
                     coinStakeBoxes: Seq[PublicKey25519NoncedBox],
                     txs: Seq[NothingAtStakeCoinTransaction],
                     timestamp: Long,
-                    history : NothingAtStakeCoinHistory): Option[NothingAtStakeCoinBlock] = {
+                    history: NothingAtStakeCoinHistory): Option[NothingAtStakeCoinBlock] = {
 
     val nonceFrom = coinStakeBoxes.map(_.nonce).toIndexedSeq
     val to = coinStakeBoxes.map(box => (minterPk.publicImage, box.value)).toIndexedSeq
     val from = nonceFrom.map(NothingAtStakeCoinInput(minterPk.publicImage, _))
 
     val maybeStakeReward = history.getStakeReward(from, timestamp)
-    maybeStakeReward match{
+    maybeStakeReward match {
       case Success(reward) =>
         val stakeTransactionWithReward = NothingAtStakeCoinTransaction(
           minterPk,
@@ -118,7 +116,7 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
           0,
           timestamp
         )
-        history.getCoinAge(stakeTransactionWithReward +: txs) match{
+        history.getCoinAge(stakeTransactionWithReward +: txs) match {
           case Success(blockCoinAge) => Some(NothingAtStakeCoinBlock(
             parentId = parent.id,
             timestamp = timestamp,
@@ -155,4 +153,5 @@ object Minter {
   case object StopMiniting
 
   case object MintLoop
+
 }
