@@ -251,14 +251,16 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
 
   private def updateBestN(newBlock: NothingAtStakeCoinBlock): (List[ByteBuffer], Option[ByteBuffer]) = {
     val newBlockId = wrapId(newBlock.id)
-    blocks.get(wrapId(newBlock.parentId)) match {
-      case Some(newBlockParent: NothingAtStakeCoinBlock) if bestNChains.contains(wrapId(newBlockParent.id)) => (newBlockId +: (bestNChains diff List(wrapId(newBlockParent.id))), None)
+    val newBlockParentId = wrapId(newBlock.parentId)
+    blocks.get(newBlockParentId) match {
+      case Some(newBlockParent: NothingAtStakeCoinBlock) if bestNChains.contains(wrapId(newBlockParent.id)) => (newBlockId +: bestNChains.filterNot(b => b == newBlockParentId), None)
       case _ =>
         if (bestNChains.size < numberOfBestChains) {
           (newBlockId +: bestNChains, None)
         } else {
           val worstBlock = leastCoinAgeFromBestChains
-          if (worstBlock.coinAge <= newBlock.coinAge) (newBlockId +: (bestNChains diff List(worstBlock.id)), Some(wrapId(worstBlock.id)))
+          val worstBlockId = wrapId(worstBlock.id)
+          if (worstBlock.coinAge <= newBlock.coinAge) (newBlockId +: bestNChains.filterNot(b => b == worstBlockId), Some(wrapId(worstBlock.id)))
           else (bestNChains, None)
         }
     }
