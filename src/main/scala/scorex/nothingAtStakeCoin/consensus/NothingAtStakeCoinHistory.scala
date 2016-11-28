@@ -98,7 +98,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
         val blocksToAdd = allBlockFromParent.foldLeft(Seq[NothingAtStakeCoinBlock]()) { (acum, blockFromParent) =>
           if (blocksToRemove.exists(tr => tr.id sameElements blockFromParent._2)) acum
           else acum :+ blockById(blockFromParent._2).get
-        }
+        }.sortBy(_.timestamp) // we need to sort the blocks by timestamp in order to append the unspents in the same order
         val rollbackTo = RollbackTo(to = commonParent.array(), thrown = blocksToRemove, applied = blocksToAdd)
         val newHistory = blocksToRemove.foldLeft[NothingAtStakeCoinHistory](this) { (currHistory: NothingAtStakeCoinHistory, blockToRemove: NothingAtStakeCoinBlock) =>
           //Remove txs from outputBlockLocations
