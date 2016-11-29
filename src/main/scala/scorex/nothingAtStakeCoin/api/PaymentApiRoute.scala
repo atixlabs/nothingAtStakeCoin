@@ -57,7 +57,7 @@ case class PaymentApiRoute(override val settings: NothingAtStakeCoinSettings, no
     )
   ))
   @ApiResponses(Array(
-    new ApiResponse(code = StatusCodes.OK.intValue, message = "Json with response or error")
+    new ApiResponse(code = 200, message = "Json with response or error")
   ))
   def payment: Route = path("payment") {
     entity(as[String]) { body =>
