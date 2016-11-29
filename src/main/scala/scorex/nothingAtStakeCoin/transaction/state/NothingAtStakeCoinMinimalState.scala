@@ -3,9 +3,9 @@ package scorex.nothingAtStakeCoin.transaction.state
 import java.nio.ByteBuffer
 
 import scorex.core.NodeViewComponentCompanion
-import scorex.core.block.StateChanges
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.MinimalState.VersionTag
+import scorex.core.transaction.state.StateChanges
 import scorex.core.transaction.state.authenticated.BoxMinimalState
 import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction

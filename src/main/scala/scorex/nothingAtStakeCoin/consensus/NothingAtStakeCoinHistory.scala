@@ -5,9 +5,9 @@ import java.util.concurrent.atomic.AtomicLong
 
 import scorex.core.NodeViewComponentCompanion
 import scorex.core.NodeViewModifier._
-import scorex.core.block.Block.Timestamp
+import scorex.core.block.Block.{BlockId, Timestamp}
 import scorex.core.consensus.History
-import scorex.core.consensus.History.{HistoryComparisonResult, RollbackTo, _}
+import scorex.core.consensus.History.{HistoryComparisonResult, RollbackTo}
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
 import scorex.crypto.encode.Base58
