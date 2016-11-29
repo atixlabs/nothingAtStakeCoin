@@ -176,7 +176,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
   override def companion: NodeViewComponentCompanion = ???
 
   private def getCoinAge(txFrom: IndexedSeq[NothingAtStakeCoinInput], txTimestamp: Timestamp): Try[CoinAgeLength] = {
-    val maybeCoinAge = txFrom.foldLeft[Try[CoinAgeLength]](Success(0: CoinAgeLength)) { case (prevCalculation, txFromInput) =>
+    val maybePartialCoinAge = txFrom.foldLeft[Try[BigInt]](Success(0: BigInt)) { case (prevCalculation, txFromInput) =>
       prevCalculation match {
         case Success(prevCoinAge) =>
           val maybeBlockLocation = outputBlockLocations.get(wrapId(txFromInput.id))
@@ -196,13 +196,18 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
                 case tDiff if tDiff > NothingAtStakeCoinHistory.STAKE_MAX_AGE => NothingAtStakeCoinHistory.STAKE_MAX_AGE
                 case tDiff => tDiff
               }
-              Success(prevCoinAge + maybeOutput.get.value * timestampDiff / NothingAtStakeCoinHistory.CENT)
+              val inputValue: BigInt = maybeOutput.get.value
+              Success(prevCoinAge + inputValue * timestampDiff / NothingAtStakeCoinHistory.CENT)
             case None => Failure(new Exception("getCoinAge: tx from tx.from was not found in history.outputBlockLocations"))
           }
         case Failure(e) => prevCalculation
       }
     }
-    maybeCoinAge.map(_ * NothingAtStakeCoinHistory.CENT / NothingAtStakeCoinHistory.COIN / (24 * 60 * 60))
+    maybePartialCoinAge.map(partialCoinAge =>{
+      val coinAge: BigInt = partialCoinAge * NothingAtStakeCoinHistory.CENT / NothingAtStakeCoinHistory.COIN / NothingAtStakeCoinHistory.daysToMs
+      if(coinAge>Long.MaxValue) Long.MaxValue else coinAge.toLong
+    })
+
   }
 
   def getCoinAge(tx: NothingAtStakeCoinTransaction): Try[CoinAgeLength] = getCoinAge(tx.from, tx.timestamp)
@@ -378,9 +383,9 @@ object NothingAtStakeCoinHistory {
   val CENT = 10000
   val COIN = 1000000
 
-  val secondsToDays = 60 * 60 * 24
-  val STAKE_MIN_AGE: Long = secondsToDays * 30
-  val STAKE_MAX_AGE: Long = secondsToDays * 90
+  val daysToMs: Long = 60 * 60 * 24 * 1000
+  val STAKE_MIN_AGE: Long = daysToMs * 30
+  val STAKE_MAX_AGE: Long = daysToMs * 90
 
   val insertionOrder: AtomicLong = new AtomicLong(0)
 
