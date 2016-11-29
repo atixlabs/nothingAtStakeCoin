@@ -107,7 +107,9 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
             log.debug(s"Block to re add ${Base58.encode(blockFromParent._2)} to history")
             acum :+ blockById(blockFromParent._2).get
           }
-        }.sortBy((b: NothingAtStakeCoinBlock) => blocksNodeInfo(wrapId(b.id)).insertionOrder) // we need to sort the blocks by timestamp in order to append the unspents in the same order
+        } // we need to sort the blocks by timestamp in order to append the unspents in the same order
+          .sortBy((b: NothingAtStakeCoinBlock) => blocksNodeInfo(wrapId(b.id)).insertionOrder)
+
         val rollbackTo = RollbackTo(to = commonParent.array(), thrown = blocksToRemove, applied = blocksToAdd)
         log.debug(s"RollbackTo ${Base58.encode(commonParent.array())} from history")
         val newHistory = blocksToRemove.foldLeft[NothingAtStakeCoinHistory](this) {

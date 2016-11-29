@@ -3,6 +3,7 @@ package scorex.nothingAtStakeCoin.api
 import javax.ws.rs.Path
 
 import akka.actor.{ActorRef, ActorRefFactory}
+import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import io.circe.generic.auto._
@@ -56,7 +57,7 @@ case class PaymentApiRoute(override val settings: NothingAtStakeCoinSettings, no
     )
   ))
   @ApiResponses(Array(
-    new ApiResponse(code = 200, message = "Json with response or error")
+    new ApiResponse(code = StatusCodes.OK.intValue, message = "Json with response or error")
   ))
   def payment: Route = path("payment") {
     entity(as[String]) { body =>

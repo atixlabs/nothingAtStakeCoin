@@ -69,7 +69,6 @@ case class NothingAtStakeCoinTransaction(
     "timestamp" -> timestamp.asJson
   ).asJson
 
-  override def equals(o: scala.Any): Boolean = super.equals(o)
 }
 
 object NothingAtStakeCoinNodeNodeViewModifierCompanion extends NodeViewModifierCompanion[NothingAtStakeCoinTransaction] {

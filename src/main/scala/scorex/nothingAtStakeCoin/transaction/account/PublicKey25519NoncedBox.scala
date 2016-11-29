@@ -3,7 +3,7 @@ package scorex.nothingAtStakeCoin.transaction.account
 import com.google.common.primitives.Longs
 import scorex.core.serialization.BytesParseable
 import scorex.core.transaction.account.PublicKeyNoncedBox
-import scorex.core.transaction.box.proposition.PublicKey25519Proposition
+import scorex.core.transaction.box.proposition.{Constants25519, PublicKey25519Proposition}
 
 import scala.util.Try
 
@@ -18,9 +18,9 @@ case class PublicKey25519NoncedBox(
 
 object PublicKey25519NoncedBox extends BytesParseable[PublicKey25519NoncedBox] {
   override def parseBytes(bytes: Array[Byte]): Try[PublicKey25519NoncedBox] = Try {
-    val pk = PublicKey25519Proposition(bytes.take(32))
-    val nonce = Longs.fromByteArray(bytes.slice(32, 40))
-    val value = Longs.fromByteArray(bytes.slice(40, 48))
+    val pk = PublicKey25519Proposition(bytes.take(Constants25519.PubKeyLength))
+    val nonce = Longs.fromByteArray(bytes.slice(Constants25519.PubKeyLength, Constants25519.PubKeyLength + Longs.BYTES))
+    val value = Longs.fromByteArray(bytes.slice(Constants25519.PubKeyLength + Longs.BYTES, Constants25519.PubKeyLength + Longs.BYTES + Longs.BYTES))
     PublicKey25519NoncedBox(pk, nonce, value)
   }
 }
