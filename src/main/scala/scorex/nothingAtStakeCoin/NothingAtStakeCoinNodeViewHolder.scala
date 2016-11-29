@@ -56,5 +56,10 @@ class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings)
     (history.get._1, minimalState, wallet, NothingAtStakeCoinMemoryPool.emptyPool)
   }
 
-  override def restoreState(): Option[(NothingAtStakeCoinHistory, NothingAtStakeCoinMinimalState, NothingAtStakeCoinWallet, NothingAtStakeCoinMemoryPool)] = None
+  override def restoreState(): Option[(
+    NothingAtStakeCoinHistory,
+      NothingAtStakeCoinMinimalState,
+      NothingAtStakeCoinWallet,
+      NothingAtStakeCoinMemoryPool
+    )] = None
 }

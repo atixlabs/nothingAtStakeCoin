@@ -3,28 +3,26 @@ package scorex.nothingAtStakeCoin.transaction.state
 import java.nio.ByteBuffer
 
 import scorex.core.NodeViewComponentCompanion
-import scorex.core.block.StateChanges
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.MinimalState.VersionTag
+import scorex.core.transaction.state.StateChanges
 import scorex.core.transaction.state.authenticated.BoxMinimalState
 import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
 
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 case class NothingAtStakeCoinMinimalState(
                                            override val version: VersionTag,
                                            history: Map[VersionTag, NothingAtStakeCoinMinimalState] = Map(),
                                            boxes: Map[ByteBuffer, PublicKey25519NoncedBox]
                                          )
-  extends BoxMinimalState[
-    PublicKey25519Proposition,
+  extends BoxMinimalState[PublicKey25519Proposition,
     PublicKey25519NoncedBox,
     NothingAtStakeCoinTransaction,
     NothingAtStakeCoinBlock,
-    NothingAtStakeCoinMinimalState
-    ] {
+    NothingAtStakeCoinMinimalState] {
 
   override def semanticValidity(tx: NothingAtStakeCoinTransaction): Try[Unit] = Success(Unit)
 
@@ -47,13 +45,19 @@ case class NothingAtStakeCoinMinimalState(
     }
   }
 
-  override def applyChanges(changes: StateChanges[PublicKey25519Proposition, PublicKey25519NoncedBox], newVersion: VersionTag): Try[NothingAtStakeCoinMinimalState] = {
+  override def applyChanges(changes: StateChanges[PublicKey25519Proposition, PublicKey25519NoncedBox], newVersion: VersionTag):
+  Try[NothingAtStakeCoinMinimalState] = {
     val afterRemoval = changes.boxIdsToRemove.foldLeft(boxes) { case (newBoxes, idToRemove) => newBoxes - ByteBuffer.wrap(idToRemove) }
     val afterAppending = changes.toAppend.foldLeft(afterRemoval) { case (newBoxes, toAdd) => newBoxes + (ByteBuffer.wrap(toAdd.id) -> toAdd) }
     Success(NothingAtStakeCoinMinimalState(newVersion, history + (this.version -> this), afterAppending))
   }
 
-  override def rollbackTo(version: VersionTag): Try[NothingAtStakeCoinMinimalState] = ???
+  override def rollbackTo(version: VersionTag): Try[NothingAtStakeCoinMinimalState] = {
+    history.get(version) match {
+      case Some(previousVersion) => Success(previousVersion)
+      case None => Failure(new RuntimeException(s"Unable to rollback Minimal State, $version not found"))
+    }
+  }
 
   override type NVCT = this.type
 

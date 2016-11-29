@@ -62,10 +62,10 @@ trait ObjectGenerators {
 
   lazy val blockIdGenerator: Gen[ModifierId] = genBytesList(ModifierIdSize)
 
-  def nothingAtSakeCoinBlockGenerator(p: Option[ModifierId] = None): Gen[NothingAtStakeCoinBlock] = for {
-    coinAge: CoinAgeLength <- Gen.choose(0: Long, Long.MaxValue - 1)
+  def nothingAtSakeCoinBlockGenerator(p: Option[ModifierId] = None, ca: Option[CoinAgeLength] = None): Gen[NothingAtStakeCoinBlock] = for {
     key <- keyGenerator
     possibleTxs <- nothingAtStakeCoinTransactionSeqGenerator
+    coinAge = ca.getOrElse(Gen.choose(1: Long, Long.MaxValue - 1000).sample.get)
     parentId = p.getOrElse(blockIdGenerator.sample.get)
     txs = possibleTxs.map(tx => if (tx.timestamp == Long.MaxValue) tx.copy(timestamp = Long.MaxValue - 1) else tx)
     coinStakeTx = emptyTx
@@ -78,8 +78,9 @@ trait ObjectGenerators {
     txs = coinStakeTx +: txs.distinct
   )
 
-  def genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(size: Int): Gen[Seq[NothingAtStakeCoinBlock]] = {
-    Gen.listOfN(size, nothingAtSakeCoinBlockGenerator()).map(_.toSeq)
+  def genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(size: Int, p: Option[ModifierId] = None,
+                                                   ca: Option[CoinAgeLength] = None): Gen[Seq[NothingAtStakeCoinBlock]] = {
+    Gen.listOfN(size, nothingAtSakeCoinBlockGenerator(p, ca)).map(_.toSeq)
   }
 
   def nothingAtStakeCoinBlockSeqGenerator(parentId: Option[ModifierId] = None): Gen[Seq[NothingAtStakeCoinBlock]] =

@@ -10,14 +10,14 @@ import org.scalatest.{FeatureSpecLike, GivenWhenThen, Matchers}
 import scorex.core.LocalInterface.LocallyGeneratedModifier
 import scorex.core.NodeViewHolder
 import scorex.core.NodeViewHolder.CurrentView
+import scorex.nothingAtStakeCoin.ObjectGenerators
 import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory
 import scorex.nothingAtStakeCoin.peercoin.Minter.StartMinting
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
 import scorex.nothingAtStakeCoin.transaction.state.NothingAtStakeCoinMinimalState
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
-import scorex.nothingAtStakeCoin.ObjectGenerators
 import scorex.nothingAtStakeCoin.transaction.wallet.NothingAtStakeCoinWallet
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
 
 import scala.concurrent.duration._
 
@@ -195,8 +195,7 @@ class MinterSpec extends TestKit(ActorSystem("MinterSpec"))
       minterRef ! StartMinting
 
       Then("It should not generate a block")
-      //expectMsg(10 seconds, currentView)
-      probe.fishForMessage(10 seconds, "Waiting For New Block") {
+      probe.fishForMessage(10.seconds, "Waiting For New Block") {
         case LocallyGeneratedModifier(generatedBlock) => {
           val generatedTxs = generatedBlock.transactions.get.flatMap(t => t.asInstanceOf[NothingAtStakeCoinTransaction].to)
           generatedBlock.parentId.sameElements(genesisBlock.id) &&

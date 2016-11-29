@@ -14,11 +14,11 @@ import scorex.core.NodeViewHolder.{CurrentView, GetCurrentView}
 import scorex.core.api.http.{ApiError, ApiRoute}
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.NetworkTime
-import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
-import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinNodeNodeViewModifierCompanion, NothingAtStakeCoinTransaction}
 import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory
+import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 import scorex.nothingAtStakeCoin.transaction.state.NothingAtStakeCoinMinimalState
 import scorex.nothingAtStakeCoin.transaction.wallet.NothingAtStakeCoinWallet
+import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinNodeNodeViewModifierCompanion, NothingAtStakeCoinTransaction}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -35,6 +35,8 @@ case class PaymentApiRoute(override val settings: NothingAtStakeCoinSettings, no
   type MS = NothingAtStakeCoinMinimalState
   type VL = NothingAtStakeCoinWallet
   type MP = NothingAtStakeCoinMemoryPool
+
+  val waitForCurrentViewInterval = 10.seconds
 
   override lazy val route = payment
 
@@ -62,9 +64,16 @@ case class PaymentApiRoute(override val settings: NothingAtStakeCoinSettings, no
         postJsonRoute {
           decode[PaymentBody](body).map { case PaymentBody(amount, fee, from, to) =>
             val future = nodeViewHolderRef ? GetCurrentView
-            val currentView = Await.result(future, 10.seconds).asInstanceOf[CurrentView[HIS, MS, VL, MP]]
+            val currentView = Await.result(future, waitForCurrentViewInterval).asInstanceOf[CurrentView[HIS, MS, VL, MP]]
 
-            NothingAtStakeCoinNodeNodeViewModifierCompanion.createTransaction(currentView.state, currentView.vault.secrets.head, from, to, amount, fee, NetworkTime.time()) match {
+            NothingAtStakeCoinNodeNodeViewModifierCompanion.createTransaction(
+              state = currentView.state,
+              fromPk = currentView.vault.secrets.head,
+              from = from,
+              to = to,
+              amount = amount,
+              fee = fee,
+              timestamp = NetworkTime.time()) match {
               case Success(tx) => {
                 nodeViewHolderRef ! LocallyGeneratedTransaction.apply[PublicKey25519Proposition, NothingAtStakeCoinTransaction](tx)
                 Map("msg" -> "Transaction created").asJson

@@ -23,7 +23,7 @@ class NothingAtStakeCoin(settingsFilename: String) extends Application {
 
   override lazy val applicationName: String = "NothingAtStakeCoin"
 
-  override def appVersion: ApplicationVersion = ApplicationVersion(0, 0, 1)
+  override val appVersion: ApplicationVersion = ApplicationVersion(0, 0, 1)
 
   override type P = PublicKey25519Proposition
   override type TX = NothingAtStakeCoinTransaction
