@@ -445,6 +445,33 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       val txCoinAge = maybeTxCoinAge.get
       txCoinAge shouldEqual 1200
     }
+
+    scenario("tx input has timestamp equal to STAKE_MAX_AGE-1"){
+      Given("a history with a genesis block with tx of timestamp 0")
+      val daysToMs = NothingAtStakeCoinHistory.daysToMs
+      val fromPk = keyGenerator.sample.get._1
+      val genesisBlockTxTimestampDays = 0
+      val genesisBlockTxValue = 2000000
+      val (history, genesisBlock) = historyOneBlockWithTxs(genesisBlockTxTimestampDays * daysToMs, fromPk, genesisBlockTxValue)
+
+      When("a tx from the outputs of genesis block is created")
+      val txTimestamp = 90*daysToMs - 1
+      val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
+      val newTx = NothingAtStakeCoinTransaction(
+        fromPk,
+        genesisBlockGeneratedBoxes.map(b => b.nonce).toIndexedSeq,
+        IndexedSeq((fromPk.publicImage, genesisBlockGeneratedBoxes.map(b => b.value).sum)),
+        0: Long,
+        txTimestamp
+      )
+
+      Then("the coinAge from the new tx is correct")
+      val maybeTxCoinAge = history.getCoinAge(newTx)
+      assert(maybeTxCoinAge.isSuccess)
+      val txCoinAge = maybeTxCoinAge.get
+      txCoinAge shouldEqual 1799
+    }
+
     scenario("tx input has timestamp equal to STAKE_MAX_AGE"){
       Given("a history with a genesis block with tx of timestamp 0")
       val daysToMs = NothingAtStakeCoinHistory.daysToMs
@@ -470,6 +497,33 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       val txCoinAge = maybeTxCoinAge.get
       txCoinAge shouldEqual 1800
     }
+
+    scenario("tx input has timestamp equal to STAKE_MAX_AGE+1"){
+      Given("a history with a genesis block with tx of timestamp 0")
+      val daysToMs = NothingAtStakeCoinHistory.daysToMs
+      val fromPk = keyGenerator.sample.get._1
+      val genesisBlockTxTimestampDays = 0
+      val genesisBlockTxValue = 2000000
+      val (history, genesisBlock) = historyOneBlockWithTxs(genesisBlockTxTimestampDays * daysToMs, fromPk, genesisBlockTxValue)
+
+      When("a tx from the outputs of genesis block is created")
+      val txTimestamp = 90*daysToMs + 1
+      val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
+      val newTx = NothingAtStakeCoinTransaction(
+        fromPk,
+        genesisBlockGeneratedBoxes.map(b => b.nonce).toIndexedSeq,
+        IndexedSeq((fromPk.publicImage, genesisBlockGeneratedBoxes.map(b => b.value).sum)),
+        0: Long,
+        txTimestamp
+      )
+
+      Then("the coinAge from the new tx is correct")
+      val maybeTxCoinAge = history.getCoinAge(newTx)
+      assert(maybeTxCoinAge.isSuccess)
+      val txCoinAge = maybeTxCoinAge.get
+      txCoinAge shouldEqual 1800
+    }
+
     scenario("tx input has timestamp greater than STAKE_MAX_AGE"){
       Given("a history with a genesis block with tx of timestamp 0")
       val daysToMs = NothingAtStakeCoinHistory.daysToMs
