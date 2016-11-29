@@ -60,7 +60,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
         block.companion.messageToSign(block),
         block.generationSignature)
         val stakeTxValid: Boolean = block.txs.nonEmpty && checkStakeTx(block.txs.head, block.generator)
-        val blockTimestampValid: Boolean = block.txs.forall(_.timestamp < block.timestamp)
+        val blockTimestampValid: Boolean = block.txs.forall(_.timestamp <= block.timestamp)
 
         //FIXME: Check before appending a block
         val validCoinAge: Boolean = getCoinAge(block.txs).map(_ == block.coinAge).isSuccess
@@ -141,7 +141,10 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     !blockFound && parentFound && blockWillBeInserted
   }
 
-  override def openSurfaceIds(): Seq[BlockId] = bestNChains.map(_.array())
+  override def openSurfaceIds(): Seq[BlockId] = {
+    if (bestNChains.isEmpty) Seq(NothingAtStakeCoinBlock.EmptyChainId)
+    else bestNChains.map(_.array())
+  }
 
   override def continuation(from: Seq[(ModifierTypeId, ModifierId)], size: Int): Option[Seq[NothingAtStakeCoinBlock]] =
     continuationIds(from, size) match {
@@ -159,7 +162,12 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
         case None => Seq()
       }
     })
-    if (found.isEmpty) None else Some(found.take(size))
+    if (found.nonEmpty) Some(found.take(size))
+    else {
+      if (from.size == 1 && (from.head._2 sameElements NothingAtStakeCoinBlock.EmptyChainId))
+        Some(Seq(NothingAtStakeCoinBlock.ModifierTypeId -> NothingAtStakeCoinBlock.GenesisBlockId))
+      else None
+    }
   }
 
   override def syncInfo(answer: Boolean): NothingAtStakeCoinSyncInfo =
@@ -203,9 +211,9 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
         case Failure(e) => prevCalculation
       }
     }
-    maybePartialCoinAge.map(partialCoinAge =>{
+    maybePartialCoinAge.map(partialCoinAge => {
       val coinAge: BigInt = partialCoinAge * NothingAtStakeCoinHistory.CENT / NothingAtStakeCoinHistory.COIN / NothingAtStakeCoinHistory.daysToMs
-      if(coinAge>Long.MaxValue) Long.MaxValue else coinAge.toLong
+      if (coinAge > Long.MaxValue) Long.MaxValue else coinAge.toLong
     })
 
   }
