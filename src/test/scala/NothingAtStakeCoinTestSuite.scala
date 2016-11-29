@@ -1,4 +1,5 @@
 import org.scalatest.Suites
+import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinSyncInfoSpec
 import scorex.nothingAtStakeCoin.history.NothingAtStakeCoinNodeNodeHistorySpec
 import scorex.nothingAtStakeCoin.peercoin.MinterSpec
 import scorex.nothingAtStakeCoin.state._
@@ -8,5 +9,6 @@ class NothingAtStakeCoinTestSuite extends Suites(
   new NothingAtStakeCoinNodeNodeViewModifierCompanionSpec,
   new NothingAtStakeCoinBlockCompanionSpec,
   new NothingAtStakeCoinNodeNodeHistorySpec,
+  new NothingAtStakeCoinSyncInfoSpec,
   new MinterSpec
 )

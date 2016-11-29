@@ -5,7 +5,6 @@ import java.nio.ByteBuffer
 import scorex.core.NodeViewModifier
 import scorex.core.NodeViewModifier.{ModifierId, ModifierTypeId}
 import scorex.core.block.Block.BlockId
-import scorex.core.consensus.History._
 import scorex.core.consensus.SyncInfo
 import scorex.core.network.message.SyncInfoSpec
 import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock.CoinAgeLength

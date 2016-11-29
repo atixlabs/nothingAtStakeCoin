@@ -3,13 +3,13 @@ package scorex.nothingAtStakeCoin
 import io.circe
 import org.scalacheck.{Arbitrary, Gen}
 import scorex.core.NodeViewModifier.{ModifierId, ModifierIdSize}
-import scorex.core.block.Block.Timestamp
+import scorex.core.block.Block._
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.proof.Signature25519
 import scorex.core.transaction.state.{PrivateKey25519, PrivateKey25519Companion}
 import scorex.crypto.signatures.Curve25519
-import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock
 import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock.CoinAgeLength
+import scorex.nothingAtStakeCoin.block.{NothingAtStakeCoinBlock, NothingAtStakeCoinSyncInfo}
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinInput, NothingAtStakeCoinOutput, NothingAtStakeCoinTransaction}
 
@@ -50,6 +50,16 @@ trait ObjectGenerators {
     fee = fee,
     timestamp = timestamp
   )
+
+  lazy val bestNChainGenerator: Gen[(BlockId, CoinAgeLength)] = for {
+    coinAge: Long <- Gen.choose(0, Long.MaxValue)
+    blockId: Array[Byte] <- genBytesList(ModifierIdSize)
+  } yield blockId -> coinAge
+
+  lazy val syncInfoGenerator: Gen[NothingAtStakeCoinSyncInfo] = for {
+    answer: Boolean <- Gen.oneOf(true, false)
+    bestNChains <- Gen.listOfN(100, bestNChainGenerator)
+  } yield new NothingAtStakeCoinSyncInfo(answer = answer, bestNChains = bestNChains)
 
   lazy val settings: NothingAtStakeCoinSettings = new NothingAtStakeCoinSettings {
     override val settingsJSON: Map[String, circe.Json] = settingsFromFile("test-settings.json")
