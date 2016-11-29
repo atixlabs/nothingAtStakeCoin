@@ -1,6 +1,7 @@
 package scorex.nothingAtStakeCoin.consensus
 
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicLong
 
 import scorex.core.NodeViewComponentCompanion
 import scorex.core.NodeViewModifier._
@@ -22,7 +23,7 @@ import scala.util.{Failure, Success, Try}
 
 case class OutputBlockLocation(blockId: ByteBuffer, blockIndex: BlockIndexLength, txOutputIndex: TxOutputIndexLength)
 
-case class BlockNodeInfo(sons: List[ByteBuffer] = List(), levelsFromRoot: Int)
+case class BlockNodeInfo(sons: List[ByteBuffer] = List(), levelsFromRoot: Int, insertionOrder: Long)
 
 case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
                                      blocks: Map[ByteBuffer, NothingAtStakeCoinBlock] = Map(),
@@ -46,7 +47,10 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
       case _ if this.isEmpty =>
         val newHistory = NothingAtStakeCoinHistory(numberOfBestChains,
           Map(wrapId(block.id) -> block),
-          Map(wrapId(block.id) -> BlockNodeInfo(sons = List(), 0)),
+          Map(wrapId(block.id) -> BlockNodeInfo(
+            sons = List(),
+            levelsFromRoot = 0,
+            insertionOrder = NothingAtStakeCoinHistory.insertionOrder.getAndIncrement())),
           List(wrapId(block.id)),
           outputBlockLocationSeq(block))
         Success((newHistory, None))
@@ -73,7 +77,10 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
           val newBlocks = blocks + (wrapId(block.id) -> block)
           val (newBestN, blockIdToRemove) = updateBestN(block)
           val newBlocksSons = changeSons(wrapId(block.parentId), wrapId(block.id), isAdd = true)
-            .getOrElse(blocksNodeInfo + (wrapId(block.id) -> BlockNodeInfo(levelsFromRoot = 0))) // It's genesis block
+            .getOrElse(blocksNodeInfo + (
+              wrapId(block.id) -> BlockNodeInfo(
+                levelsFromRoot = 0,
+                insertionOrder = NothingAtStakeCoinHistory.insertionOrder.getAndIncrement()))) // It's genesis block
           val newOutputBlockLocations = outputBlockLocations ++ outputBlockLocationSeq(block)
           NothingAtStakeCoinHistory(numberOfBestChains, newBlocks, newBlocksSons, newBestN, newOutputBlockLocations) //Obtain newHistory with newInfo
             .removeBlockFromHistory(blockIdToRemove) //Remove blockToRemove
@@ -100,7 +107,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
             log.debug(s"Block to re add ${Base58.encode(blockFromParent._2)} to history")
             acum :+ blockById(blockFromParent._2).get
           }
-        }.sortBy(_.timestamp) // we need to sort the blocks by timestamp in order to append the unspents in the same order
+        }.sortBy((b: NothingAtStakeCoinBlock) => blocksNodeInfo(wrapId(b.id)).insertionOrder) // we need to sort the blocks by timestamp in order to append the unspents in the same order
         val rollbackTo = RollbackTo(to = commonParent.array(), thrown = blocksToRemove, applied = blocksToAdd)
         log.debug(s"RollbackTo ${Base58.encode(commonParent.array())} from history")
         val newHistory = blocksToRemove.foldLeft[NothingAtStakeCoinHistory](this) {
@@ -218,7 +225,10 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
           Success(
             blocksNodeInfo +
               (parentId -> blockNodeInfo.copy(sons = blockNodeInfo.sons :+ sonId)) +
-              (sonId -> BlockNodeInfo(levelsFromRoot = blockNodeInfo.levelsFromRoot + 1))
+              (sonId -> BlockNodeInfo(
+                levelsFromRoot = blockNodeInfo.levelsFromRoot + 1,
+                insertionOrder = NothingAtStakeCoinHistory.insertionOrder.getAndIncrement()
+              ))
           )
         } else {
           val newSons = blockNodeInfo.sons.filter(son => son != sonId)
@@ -369,6 +379,8 @@ object NothingAtStakeCoinHistory {
   val secondsToDays = 60 * 60 * 24
   val STAKE_MIN_AGE: Long = secondsToDays * 30
   val STAKE_MAX_AGE: Long = secondsToDays * 90
+
+  val insertionOrder: AtomicLong = new AtomicLong(0)
 
   //FIXME: Obtain values from settings
   val numberOfTxsPerBlock = 10

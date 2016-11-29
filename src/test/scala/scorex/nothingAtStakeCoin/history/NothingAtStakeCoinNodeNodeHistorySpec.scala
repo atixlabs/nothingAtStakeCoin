@@ -295,24 +295,21 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
       Then("The new history should have the correct amount of elements")
       afterAppendHistory.blocks.size shouldEqual 7 // genesis, B1, B2, B3, B6, B7, B8
+
       Then("The new history should the correct bestNChains")
       afterAppendHistory.bestNChains.size shouldEqual numberOfBestChains // be the maxValue
-      afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block6.id)) shouldEqual true
-      afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block7.id)) shouldEqual true
-      afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block8.id)) shouldEqual true
+      for( block <- Seq(block6, block7, block8) )
+        afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block.id)) shouldEqual true
+
       Then("Rollback history should be ok")
       rollbackTo.isDefined shouldEqual true
       rollbackTo.get.to sameElements genesisBlock.id shouldEqual true
       rollbackTo.get.thrown.size shouldEqual 2
-      rollbackTo.get.thrown.contains(block4) shouldEqual true
-      rollbackTo.get.thrown.contains(block5) shouldEqual true
+      for( thrown <- Seq(block4, block5) )
+        rollbackTo.get.thrown.contains(thrown) shouldEqual true
       rollbackTo.get.applied.size shouldEqual 6
-      rollbackTo.get.applied.contains(block1) shouldEqual true
-      rollbackTo.get.applied.contains(block2) shouldEqual true
-      rollbackTo.get.applied.contains(block3) shouldEqual true
-      rollbackTo.get.applied.contains(block6) shouldEqual true
-      rollbackTo.get.applied.contains(block7) shouldEqual true
-      rollbackTo.get.applied.contains(block8) shouldEqual true
+      for ((appliedBlock, block) <- rollbackTo.get.applied.zip(Seq(block1, block2, block3, block6, block7, block8)))
+        appliedBlock.id sameElements block.id shouldEqual true
     }
   }
 
