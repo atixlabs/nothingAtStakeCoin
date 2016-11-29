@@ -11,7 +11,7 @@ import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
 
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 case class NothingAtStakeCoinMinimalState(
                                            override val version: VersionTag,
@@ -52,7 +52,12 @@ case class NothingAtStakeCoinMinimalState(
     Success(NothingAtStakeCoinMinimalState(newVersion, history + (this.version -> this), afterAppending))
   }
 
-  override def rollbackTo(version: VersionTag): Try[NothingAtStakeCoinMinimalState] = ???
+  override def rollbackTo(version: VersionTag): Try[NothingAtStakeCoinMinimalState] = {
+    history.get(version) match {
+      case Some(previousVersion) => Success(previousVersion)
+      case None => Failure(new RuntimeException(s"Unable to rollback Minimal State, $version not found"))
+    }
+  }
 
   override type NVCT = this.type
 
