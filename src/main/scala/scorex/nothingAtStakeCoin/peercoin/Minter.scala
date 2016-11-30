@@ -135,21 +135,8 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
           case Failure(e) => None
         }
       case Failure(e) =>
-        //FIXME: Should return None because reward is not found but doing that currently breaks the minter tests
-        val stakeTransactionWithoutReward = NothingAtStakeCoinTransaction(
-          minterPk,
-          nonceFrom,
-          to,
-          0,
-          timestamp
-        )
-        Some(NothingAtStakeCoinBlock(
-          parentId = parent.id,
-          timestamp = timestamp,
-          generatorKeys = minterPk,
-          coinAge = Long.MaxValue,
-          txs = stakeTransactionWithoutReward +: txs
-        ))
+        log.error("Error in minter", e)
+        None
     }
   }
 }
