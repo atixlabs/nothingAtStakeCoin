@@ -21,9 +21,9 @@ class NothingAtStakeCoin(settingsFilename: String) extends Application {
     override val settingsJSON: Map[String, circe.Json] = settingsFromFile(settingsFilename)
   }
 
-  override lazy val applicationName: String = "NothingAtStakeCoin"
+  override lazy val applicationName: String = "NothingAtStakeCoin2"
 
-  override val appVersion: ApplicationVersion = ApplicationVersion(0, 0, 1)
+  override lazy val appVersion: ApplicationVersion = ApplicationVersion(0, 0, 1)
 
   override type P = PublicKey25519Proposition
   override type TX = NothingAtStakeCoinTransaction
