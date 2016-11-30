@@ -35,7 +35,10 @@ Besides Scorex configuration defined in a settings.json file, the following para
 | numberOfBestChains | Number of best chains to keep in history in order to contribute to |     
      
 ### Starting up
-// TODO
+
+The easiest way to run the app is using [sbt](http://www.scala-sbt.org/). Once installed, go to project root and run
+
+`sbt "run-main scorex.nothingAtStakeCoin.NothingAtStakeCoin ABSOLUTE_PATH_TO_SETTINGS_JSON"`
 
 ## Tests
 
