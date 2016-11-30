@@ -102,15 +102,14 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
       // blocks that can be removed from the removed node branch
       case Some(blockId) => {
         log.debug(s"About to remove ${Base58.encode(blockId.array())} from history")
-        val commonParent: ByteBuffer = findCommonParent((bestNChains :+ blockId).toSet)
-        val allBlockFromParent = continuationRecursive(Seq(), blocksNodeInfo(commonParent).sons)
+        val (commonParent, allBlockFromParent): (ByteBuffer, Seq[ByteBuffer]) = findCommonBlocksUntilParent((bestNChains :+ blockId).toSet)
         // We will only remove blocks from leaf to parent that do not have any other sons, which means, they can be removed
         val blocksToRemove = nodesToRemove(Seq(), blockId, commonParent).reverse.map(toRemove => blockById(toRemove).get)
         val blocksToAdd = allBlockFromParent.foldLeft(Seq[NothingAtStakeCoinBlock]()) { (acum, blockFromParent) =>
-          if (blocksToRemove.exists(tr => tr.id sameElements blockFromParent._2)) acum
+          if (blocksToRemove.exists(tr => tr.id sameElements blockFromParent.array())) acum
           else {
-            log.debug(s"Block to re add ${Base58.encode(blockFromParent._2)} to history")
-            acum :+ blockById(blockFromParent._2).get
+            log.debug(s"Block to re add ${Base58.encode(blockFromParent.array())} to history")
+            acum :+ blockById(blockFromParent).get
           }
         } // we need to sort the blocks by timestamp in order to append the unspents in the same order
           .sortBy((b: NothingAtStakeCoinBlock) => blocksNodeInfo(wrapId(b.id)).insertionOrder)
@@ -346,17 +345,21 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     inputFromMinter && outputToMinter && correctInputOutputQuantities
   }
 
+
+  /**
+    * This method finds all blocks until the least common ancestor and returns parentId and all the child nodes
+    */
   @tailrec
-  private def findCommonParent(ids: Set[ByteBuffer]): ByteBuffer = {
-    val parents = ids.flatMap(id => blockById(id)).map(b => ByteBuffer.wrap(b.parentId)).toSet
-    if (parents.size == 1) parents.head // If all items have the same parent, we have found it!
+  private def findCommonBlocksUntilParent(ids: Set[ByteBuffer], commonBlocks: Seq[ByteBuffer] = Seq()): (ByteBuffer, Seq[ByteBuffer]) = {
+    val parents = ids.flatMap(id => blockById(id)).map(b => ByteBuffer.wrap(b.parentId))
+    if (parents.size == 1) parents.head -> (commonBlocks ++ ids) // If all items have the same parent, we have found it!
     else {
       val maxDistanceToGenesisOne: (ByteBuffer, BlockIndexLength) = ids.map(id => id -> blocksNodeInfo(id).levelsFromRoot).maxBy(_._2)
       val maxDistanceBlock = blockById(maxDistanceToGenesisOne._1).get
       val maxDistanceBlockId = wrapId(maxDistanceBlock.id)
       // Add parent, remove son and iterate again
       val nextIterationIds = ids.filter(id => id != maxDistanceBlockId) + wrapId(maxDistanceBlock.parentId)
-      findCommonParent(nextIterationIds)
+      findCommonBlocksUntilParent(nextIterationIds, commonBlocks ++ Seq(maxDistanceBlockId))
     }
   }
 
