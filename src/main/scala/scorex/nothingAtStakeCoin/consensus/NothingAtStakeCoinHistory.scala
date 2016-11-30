@@ -26,6 +26,7 @@ case class OutputBlockLocation(blockId: ByteBuffer, blockIndex: BlockIndexLength
 case class BlockNodeInfo(sons: List[ByteBuffer] = List(), levelsFromRoot: Int, insertionOrder: Long)
 
 case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
+                                     genesisBlockId: Option[ByteBuffer] = None,
                                      blocks: Map[ByteBuffer, NothingAtStakeCoinBlock] = Map(),
                                      blocksNodeInfo: Map[ByteBuffer, BlockNodeInfo] = Map(),
                                      bestNChains: List[ByteBuffer] = List(),
@@ -45,14 +46,16 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     log.debug(s"Appending block ${block.idAsString()} to history")
     this match {
       case _ if this.isEmpty =>
-        val newHistory = NothingAtStakeCoinHistory(numberOfBestChains,
-          Map(wrapId(block.id) -> block),
-          Map(wrapId(block.id) -> BlockNodeInfo(
+        val newHistory = NothingAtStakeCoinHistory(
+          numberOfBestChains = numberOfBestChains,
+          genesisBlockId = Some(wrapId(block.id)),
+          blocks = Map(wrapId(block.id) -> block),
+          blocksNodeInfo = Map(wrapId(block.id) -> BlockNodeInfo(
             sons = List(),
             levelsFromRoot = 0,
             insertionOrder = NothingAtStakeCoinHistory.insertionOrder.getAndIncrement())),
-          List(wrapId(block.id)),
-          outputBlockLocationSeq(block))
+          bestNChains = List(wrapId(block.id)),
+          outputBlockLocations = outputBlockLocationSeq(block))
         Success((newHistory, None))
       case _ =>
         val uniqueTxs: Boolean = block.txs.toSet.size == block.txs.length //Check for duplicate txs
@@ -74,15 +77,17 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
           log.debug(s"Appending conditions met for block ${block.idAsString()}")
 
           /* Add block */
-          val newBlocks = blocks + (wrapId(block.id) -> block)
           val (newBestN, blockIdToRemove) = updateBestN(block)
           val newBlocksSons = changeSons(wrapId(block.parentId), wrapId(block.id), isAdd = true)
             .getOrElse(blocksNodeInfo + (
               wrapId(block.id) -> BlockNodeInfo(
                 levelsFromRoot = 0,
                 insertionOrder = NothingAtStakeCoinHistory.insertionOrder.getAndIncrement()))) // It's genesis block
-          val newOutputBlockLocations = outputBlockLocations ++ outputBlockLocationSeq(block)
-          NothingAtStakeCoinHistory(numberOfBestChains, newBlocks, newBlocksSons, newBestN, newOutputBlockLocations) //Obtain newHistory with newInfo
+          this.copy(
+            blocks = blocks + (wrapId(block.id) -> block),
+            blocksNodeInfo = newBlocksSons,
+            bestNChains = newBestN,
+            outputBlockLocations = outputBlockLocations ++ outputBlockLocationSeq(block)) //Obtain newHistory with newInfo
             .removeBlockFromHistory(blockIdToRemove) //Remove blockToRemove
         } else {
           Failure(new Exception("Block does not verify requirements"))
@@ -121,12 +126,12 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
             //Remove blockToRemoveId
             val toRemoveId = wrapId(blockToRemove.id)
             val newSons = currHistory.changeSons(wrapId(blockToRemove.parentId), toRemoveId, isAdd = false).get
-            NothingAtStakeCoinHistory(
+            currHistory.copy(
               numberOfBestChains = currHistory.numberOfBestChains,
               blocks = currHistory.blocks - toRemoveId,
               blocksNodeInfo = newSons,
               bestNChains = currHistory.bestNChains,
-              newOutputBlockLocations)
+              outputBlockLocations = newOutputBlockLocations)
         }
         Success(newHistory -> Some(rollbackTo))
       }
@@ -165,7 +170,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
     if (found.nonEmpty) Some(found.take(size))
     else {
       if (from.size == 1 && (from.head._2 sameElements NothingAtStakeCoinBlock.EmptyChainId))
-        Some(Seq(NothingAtStakeCoinBlock.ModifierTypeId -> NothingAtStakeCoinBlock.GenesisBlockId))
+        Some(Seq(NothingAtStakeCoinBlock.ModifierTypeId -> genesisBlockId.get.array()))
       else None
     }
   }
