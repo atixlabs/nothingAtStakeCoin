@@ -2,7 +2,6 @@ package scorex.nothingAtStakeCoin.history
 
 import java.nio.ByteBuffer
 
-import org.scalacheck.Gen
 import org.scalatest.{FeatureSpec, GivenWhenThen, Matchers}
 import scorex.core.NodeViewModifier
 import scorex.core.NodeViewModifier.ModifierId
@@ -15,7 +14,7 @@ import scorex.crypto.encode.Base58
 import scorex.nothingAtStakeCoin.ObjectGenerators
 import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock
 import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock.CoinAgeLength
-import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory
+import scorex.nothingAtStakeCoin.consensus.{HistorySettings, NothingAtStakeCoinHistory}
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction
 import scorex.nothingAtStakeCoin.transaction.NothingAtStakeCoinTransaction.{Nonce, Value}
 import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
@@ -30,8 +29,8 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
   val numberOfBestChains: Int = 10
   val numberOfTxsPerBlock: Int = NothingAtStakeCoinHistory.numberOfTxsPerBlock
-  val STAKE_MIN_AGE = NothingAtStakeCoinHistory.STAKE_MIN_AGE
-  val STAKE_MAX_AGE = NothingAtStakeCoinHistory.STAKE_MAX_AGE
+  val STAKE_MIN_AGE: Long = 30 * 60 * 60 * 24 * 1000L
+  val STAKE_MAX_AGE: Long = 90 * 60 * 60 * 24 * 1000L
 
   def newBlockCorrectlyInHistory(history: NothingAtStakeCoinHistory, block: NothingAtStakeCoinBlock): Unit = {
     val byteBufferBlockId = wrapId(block.id)
@@ -46,7 +45,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
   def wrapId(bytes: Array[Byte]): ByteBuffer = ByteBuffer.wrap(bytes)
 
   def generateHistory(blockNumber: Int, numberOfBestChains: Option[Int] = None): (NothingAtStakeCoinHistory, NothingAtStakeCoinBlock) = {
-    val emptyHistory = NothingAtStakeCoinHistory(numberOfBestChains = numberOfBestChains.getOrElse(this.numberOfBestChains))
+    val emptyHistory = NothingAtStakeCoinHistory(HistorySettings(numberOfBestChains = numberOfBestChains.getOrElse(this.numberOfBestChains)))
     val genesisBlock = nothingAtSakeCoinBlockGenerator(Some(Array.fill(NodeViewModifier.ModifierIdSize)(1: Byte))).sample.get
     val historyWithOneBlock = insertBlock(emptyHistory, genesisBlock).get._1
     val historyWithNChains = (1 to blockNumber).foldLeft[NothingAtStakeCoinHistory](historyWithOneBlock) {
@@ -90,7 +89,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
     assert(history1.outputBlockLocations.keys.map(boxId => Base58.encode(boxId.array)).toSet == history2.outputBlockLocations.keys.map(boxId => Base58.encode(boxId.array)).toSet)
   }
 
-  def daysToMs(days: Long): Long = days*NothingAtStakeCoinHistory.daysToMs
+  def daysToMs(days: Long): Long = days * NothingAtStakeCoinHistory.daysToMs
 
   /* Constructor functions */
   def nothingAtStakeCoinTransactionConstructor(timestamp: Timestamp,
@@ -98,8 +97,8 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
                                                numberOfOutputsPerTx: Int = 1,
                                                fromPk: PrivateKey25519): (NothingAtStakeCoinTransaction, Seq[PublicKey25519NoncedBox]) = {
     val inputBox = unusedBoxes.head
-    val outputsWithoutLast = (1 until numberOfOutputsPerTx).map(_ => (fromPk.publicImage, inputBox.value/ numberOfOutputsPerTx))
-    val outputs: Seq[(PublicKey25519Proposition, Value)] = (fromPk.publicImage, inputBox.value-outputsWithoutLast.map(_._2).sum) +: outputsWithoutLast
+    val outputsWithoutLast = (1 until numberOfOutputsPerTx).map(_ => (fromPk.publicImage, inputBox.value / numberOfOutputsPerTx))
+    val outputs: Seq[(PublicKey25519Proposition, Value)] = (fromPk.publicImage, inputBox.value - outputsWithoutLast.map(_._2).sum) +: outputsWithoutLast
     val tx = NothingAtStakeCoinTransaction(
       fromPk = fromPk,
       from = Seq(inputBox.nonce).toIndexedSeq,
@@ -117,7 +116,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
                                                   numberOfOutputsPerTx: Int = 1,
                                                   fromPk: PrivateKey25519
                                                  ): (Seq[NothingAtStakeCoinTransaction], Seq[PublicKey25519NoncedBox]) = {
-    (1 to numberTxs).foldLeft[(Seq[NothingAtStakeCoinTransaction], Seq[PublicKey25519NoncedBox])](Seq(), unusedBoxes){
+    (1 to numberTxs).foldLeft[(Seq[NothingAtStakeCoinTransaction], Seq[PublicKey25519NoncedBox])](Seq(), unusedBoxes) {
       case ((prevTxs, prevUnusedBoxes), _) =>
         val (tx, newUnusedBoxes) = nothingAtStakeCoinTransactionConstructor(timestamp, prevUnusedBoxes, numberOfOutputsPerTx, fromPk)
         (tx +: prevTxs, newUnusedBoxes)
@@ -135,8 +134,8 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
     val blockTimestamp: Timestamp = timestamp.getOrElse(history.blocks.map(_._2.timestamp).max) + (1: Timestamp)
     val (txs, newUnusedBoxes) = nothingAtStakeCoinTransactionSeqConstructor(numberOfTxsPerBlock, blockTimestamp, unusedBoxes, numberOfOutputsPerTx, fromPk)
     val coinStakeTx = NothingAtStakeCoinTransaction(IndexedSeq(), IndexedSeq(), IndexedSeq(), 0, blockTimestamp)
-    val blockCoinAge: CoinAgeLength = if(parentId.isDefined) history.getCoinAge(txs).get else 0
-    val coinAgeParent: CoinAgeLength = if(parentId.isDefined) history.blocks(ByteBuffer.wrap(parentId.get)).coinAge else 0
+    val blockCoinAge: CoinAgeLength = if (parentId.isDefined) history.getCoinAge(txs).get else 0
+    val coinAgeParent: CoinAgeLength = if (parentId.isDefined) history.blocks(ByteBuffer.wrap(parentId.get)).coinAge else 0
     (NothingAtStakeCoinBlock(
       //If parentId.isEmpty then we are creating a genesis block
       parentId = parentId.getOrElse(NothingAtStakeCoinBlock.GenesisParentBlockId),
@@ -152,14 +151,14 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
                        timestamp: Option[Timestamp],
                        reservedGenesisBlockOutputsPerTx: Int = 0,
                        fromPk: PrivateKey25519): (NothingAtStakeCoinHistory, NothingAtStakeCoinBlock, Seq[PublicKey25519NoncedBox], Seq[PublicKey25519NoncedBox]) = {
-    val emptyHistory = NothingAtStakeCoinHistory(numberOfBestChains = numberOfChains.getOrElse(numberOfBestChains))
+    val emptyHistory = NothingAtStakeCoinHistory(HistorySettings(numberOfBestChains = numberOfChains.getOrElse(numberOfBestChains)))
     val genesisBoxes: Seq[PublicKey25519NoncedBox] = (1 to numberOfTxsPerBlock).map(nonce => PublicKey25519NoncedBox(fromPk.publicImage, nonce, 2000000))
     val (genesisBlock: NothingAtStakeCoinBlock, genesisUnusedBoxes: Seq[PublicKey25519NoncedBox]) = nothingAtStakeCoinBlockConstructor(
       parentId = None,
       timestamp = Some(0: Timestamp),
       history = emptyHistory,
       unusedBoxes = genesisBoxes,
-      numberOfOutputsPerTx = reservedGenesisBlockOutputsPerTx+1,
+      numberOfOutputsPerTx = reservedGenesisBlockOutputsPerTx + 1,
       fromPk = fromPk
     )
     val (reservedGenesisUnusedBoxes, notReservedGenesisUnusedBoxes) =
@@ -508,7 +507,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       )
       val unusedBoxesBlock3 = unusedBoxesBlock2.drop(numberOfTxsPerBlock)
       val historyBlock3 = insertBlock(historyBlock2, block3).get._1
-      val timestampStepping = (STAKE_MAX_AGE-STAKE_MIN_AGE)/4+STAKE_MIN_AGE
+      val timestampStepping = (STAKE_MAX_AGE - STAKE_MIN_AGE) / 4 + STAKE_MIN_AGE
       val (block4, _) = nothingAtStakeCoinBlockConstructor(
         parentId = Some(block3.id),
         timestamp = Some(0),
@@ -529,7 +528,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       val historyBlock5 = insertBlock(historyBlock4, block5).get._1
       val (block6, _) = nothingAtStakeCoinBlockConstructor(
         parentId = Some(block3.id),
-        timestamp = Some(2*timestampStepping + STAKE_MIN_AGE),
+        timestamp = Some(2 * timestampStepping + STAKE_MIN_AGE),
         history = historyBlock5,
         unusedBoxes = unusedBoxesBlock5.take(numberOfTxsPerBlock),
         fromPk = fromPk
@@ -538,7 +537,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       val historyBlock6 = insertBlock(historyBlock5, block6).get._1
       val (block7, _) = nothingAtStakeCoinBlockConstructor(
         parentId = Some(block1.id),
-        timestamp = Some(3*timestampStepping + STAKE_MIN_AGE),
+        timestamp = Some(3 * timestampStepping + STAKE_MIN_AGE),
         history = historyBlock6,
         unusedBoxes = unusedBoxesBlock6.take(numberOfTxsPerBlock),
         fromPk = fromPk
@@ -561,14 +560,14 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
       Then("The new history should the correct bestNChains")
       afterAppendHistory.bestNChains.size shouldEqual numberOfBestChains // be the maxValue
-      for( block <- Seq(block6, block7, block8) )
+      for (block <- Seq(block6, block7, block8))
         afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block.id)) shouldEqual true
 
       Then("Rollback history should be ok")
       rollbackTo.isDefined shouldEqual true
       rollbackTo.get.to sameElements genesisBlock.id shouldEqual true
       rollbackTo.get.thrown.size shouldEqual 2
-      for( thrown <- Seq(block4, block5) )
+      for (thrown <- Seq(block4, block5))
         rollbackTo.get.thrown.contains(thrown) shouldEqual true
       rollbackTo.get.applied.size shouldEqual 6
       for ((appliedBlock, block) <- rollbackTo.get.applied.zip(Seq(block1, block2, block3, block6, block7, block8)))
@@ -582,7 +581,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
      *            STAKE_MAX_AGE = 90
      *            numberOfTxsPerBlock = 10
      */
-    scenario("tx input has timestamp less than STAKE_MIN_AGE"){
+    scenario("tx input has timestamp less than STAKE_MIN_AGE") {
       Given("a history with a genesis block with tx of timestamp 0")
       val daysToMs = NothingAtStakeCoinHistory.daysToMs
       val fromPk = keyGenerator.sample.get._1
@@ -609,7 +608,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       txCoinAge shouldEqual 0
     }
 
-    scenario("tx input has timestamp equal to STAKE_MIN_AGE-1"){
+    scenario("tx input has timestamp equal to STAKE_MIN_AGE-1") {
       Given("a history with a genesis block with tx of timestamp 0")
       val daysToMs = NothingAtStakeCoinHistory.daysToMs
       val fromPk = keyGenerator.sample.get._1
@@ -618,7 +617,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       val (history, genesisBlock) = historyOneBlockWithTxs(genesisBlockTxTimestampDays * daysToMs, fromPk, genesisBlockTxValue)
 
       When("a tx from the outputs of genesis block is created")
-      val txTimestamp = 30*daysToMs-1
+      val txTimestamp = 30 * daysToMs - 1
       val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
@@ -636,7 +635,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       txCoinAge shouldEqual 0
     }
 
-    scenario("tx input has timestamp equal to STAKE_MIN_AGE"){
+    scenario("tx input has timestamp equal to STAKE_MIN_AGE") {
       Given("a history with a genesis block with tx of timestamp 0")
       val daysToMs = NothingAtStakeCoinHistory.daysToMs
       val fromPk = keyGenerator.sample.get._1
@@ -662,7 +661,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       txCoinAge shouldEqual 600
     }
 
-    scenario("tx input has timestamp equal to STAKE_MIN_AGE+1"){
+    scenario("tx input has timestamp equal to STAKE_MIN_AGE+1") {
       Given("a history with a genesis block with tx of timestamp 0")
       val daysToMs = NothingAtStakeCoinHistory.daysToMs
       val fromPk = keyGenerator.sample.get._1
@@ -671,7 +670,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       val (history, genesisBlock) = historyOneBlockWithTxs(genesisBlockTxTimestampDays * daysToMs, fromPk, genesisBlockTxValue)
 
       When("a tx from the outputs of genesis block is created")
-      val txTimestamp = 30*daysToMs + 1
+      val txTimestamp = 30 * daysToMs + 1
       val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
@@ -688,7 +687,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       txCoinAge shouldEqual 600
     }
 
-    scenario("tx input has timestamp greater than STAKE_MIN_AGE and less to STAKE_MAX_AGE"){
+    scenario("tx input has timestamp greater than STAKE_MIN_AGE and less to STAKE_MAX_AGE") {
       Given("a history with a genesis block with tx of timestamp 0")
       val daysToMs = NothingAtStakeCoinHistory.daysToMs
       val fromPk = keyGenerator.sample.get._1
@@ -714,7 +713,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       txCoinAge shouldEqual 1200
     }
 
-    scenario("tx input has timestamp equal to STAKE_MAX_AGE-1"){
+    scenario("tx input has timestamp equal to STAKE_MAX_AGE-1") {
       Given("a history with a genesis block with tx of timestamp 0")
       val daysToMs = NothingAtStakeCoinHistory.daysToMs
       val fromPk = keyGenerator.sample.get._1
@@ -723,7 +722,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       val (history, genesisBlock) = historyOneBlockWithTxs(genesisBlockTxTimestampDays * daysToMs, fromPk, genesisBlockTxValue)
 
       When("a tx from the outputs of genesis block is created")
-      val txTimestamp = 90*daysToMs - 1
+      val txTimestamp = 90 * daysToMs - 1
       val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
@@ -740,7 +739,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       txCoinAge shouldEqual 1799
     }
 
-    scenario("tx input has timestamp equal to STAKE_MAX_AGE"){
+    scenario("tx input has timestamp equal to STAKE_MAX_AGE") {
       Given("a history with a genesis block with tx of timestamp 0")
       val daysToMs = NothingAtStakeCoinHistory.daysToMs
       val fromPk = keyGenerator.sample.get._1
@@ -766,7 +765,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       txCoinAge shouldEqual 1800
     }
 
-    scenario("tx input has timestamp equal to STAKE_MAX_AGE+1"){
+    scenario("tx input has timestamp equal to STAKE_MAX_AGE+1") {
       Given("a history with a genesis block with tx of timestamp 0")
       val daysToMs = NothingAtStakeCoinHistory.daysToMs
       val fromPk = keyGenerator.sample.get._1
@@ -775,7 +774,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       val (history, genesisBlock) = historyOneBlockWithTxs(genesisBlockTxTimestampDays * daysToMs, fromPk, genesisBlockTxValue)
 
       When("a tx from the outputs of genesis block is created")
-      val txTimestamp = 90*daysToMs + 1
+      val txTimestamp = 90 * daysToMs + 1
       val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
@@ -792,7 +791,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       txCoinAge shouldEqual 1800
     }
 
-    scenario("tx input has timestamp greater than STAKE_MAX_AGE"){
+    scenario("tx input has timestamp greater than STAKE_MAX_AGE") {
       Given("a history with a genesis block with tx of timestamp 0")
       val daysToMs = NothingAtStakeCoinHistory.daysToMs
       val fromPk = keyGenerator.sample.get._1
@@ -953,7 +952,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
         unusedBoxes = genesisUnusedBoxes,
         fromPk = fromPk
       )._1
-//      val block = nothingAtSakeCoinBlockGenerator(Some(history1.bestNChains.head.array()), Some(Long.MaxValue)).sample.get
+      //      val block = nothingAtSakeCoinBlockGenerator(Some(history1.bestNChains.head.array()), Some(Long.MaxValue)).sample.get
       val history2 = insertBlock(history1, block).get._1
 
       When("Comparing amongst them")
@@ -986,7 +985,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
         unusedBoxes = unusedBoxes,
         fromPk = fromPk
       )._1
-//      val block = nothingAtSakeCoinBlockGenerator(Some(genesisBlock.id), Some(Long.MaxValue)).sample.get
+      //      val block = nothingAtSakeCoinBlockGenerator(Some(genesisBlock.id), Some(Long.MaxValue)).sample.get
       val history1 = insertBlock(history2, block).get._1
 
       When("Comparing amongst them")
@@ -1003,7 +1002,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
     scenario("Comparing histories with the same length of their bestNChains but with different blocks in them") {
       Given("There is a history")
-//      val (history, genesisBlock) = generateHistory(numberOfBestChains - 1)
+      //      val (history, genesisBlock) = generateHistory(numberOfBestChains - 1)
       val fromPk = keyGenerator.sample.get._1
       val (history, genesisBlock, unusedBoxes, _) = constructHistory(
         blockNumber = numberOfBestChains - 1,
@@ -1019,7 +1018,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
         unusedBoxes = unusedBoxes,
         fromPk = fromPk
       )._1
-//      val block1 = nothingAtSakeCoinBlockGenerator(Some(genesisBlock.id), Some(Long.MaxValue)).sample.get
+      //      val block1 = nothingAtSakeCoinBlockGenerator(Some(genesisBlock.id), Some(Long.MaxValue)).sample.get
       val history1 = insertBlock(history, block1).get._1
       Given("A block is added resulting in history2")
       val block2 = nothingAtStakeCoinBlockConstructor(
@@ -1029,7 +1028,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
         unusedBoxes = unusedBoxes,
         fromPk = fromPk
       )._1
-//      val block2 = nothingAtSakeCoinBlockGenerator(Some(genesisBlock.id), Some(0)).sample.get
+      //      val block2 = nothingAtSakeCoinBlockGenerator(Some(genesisBlock.id), Some(0)).sample.get
       val history2 = insertBlock(history, block2).get._1
 
       When("Comparing amongst them")
