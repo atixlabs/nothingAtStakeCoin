@@ -10,11 +10,12 @@ import org.scalatest.{FeatureSpecLike, GivenWhenThen, Matchers}
 import scorex.core.LocalInterface.LocallyGeneratedModifier
 import scorex.core.NodeViewHolder
 import scorex.core.NodeViewHolder.CurrentView
+import scorex.core.transaction.state.PrivateKey25519
 import scorex.nothingAtStakeCoin.ObjectGenerators
+import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock
 import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory
 import scorex.nothingAtStakeCoin.peercoin.Minter.StartMinting
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
-import scorex.nothingAtStakeCoin.transaction.account.PublicKey25519NoncedBox
 import scorex.nothingAtStakeCoin.transaction.state.NothingAtStakeCoinMinimalState
 import scorex.nothingAtStakeCoin.transaction.wallet.NothingAtStakeCoinWallet
 import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinMemoryPool, NothingAtStakeCoinTransaction}
@@ -92,32 +93,32 @@ class MinterSpec extends TestKit(ActorSystem("MinterSpec"))
     }
 
     scenario("It should not generate a block if there is no stake to use while mining") {
-      Given("There is a Minter process with a single transaction")
+      Given("There is a Minter")
       val probe = TestProbe()
       val minterRef = TestActorRef(Props(classOf[Minter], fakeSettings, probe.ref))
 
-      When("It receives empty history as CurrentView after starting")
+      When("It receives history with no stake to be used")
       val wallet = NothingAtStakeCoinWallet(fakeSettings)
-      val genesisBlock = nothingAtSakeCoinBlockGenerator().sample.get
-      val history = (new NothingAtStakeCoinHistory).append(genesisBlock).get._1
-      val tx1 = NothingAtStakeCoinTransaction(
-        wallet.secrets.head,
-        IndexedSeq(1L),
-        IndexedSeq((wallet.publicKeys.head, 90L)),
-        10,
-        0
-      )
-      val tx2 = NothingAtStakeCoinTransaction(
-        wallet.secrets.head,
-        IndexedSeq(2L),
-        IndexedSeq((wallet.publicKeys.head, 180L)),
-        20,
-        0
+
+      val walletPk: PrivateKey25519 = wallet.secrets.head
+      val tx1InputTx = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(1L), IndexedSeq((wallet.publicKeys.head, 90L)), 10, 0)
+      val tx2InputTx = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(2L), IndexedSeq((wallet.publicKeys.head, 180L)), 10, 0)
+
+      val genesisBlock = NothingAtStakeCoinBlock(
+        parentId = NothingAtStakeCoinBlock.GenesisParentBlockId,
+        timestamp = 0L,
+        generatorKeys = walletPk,
+        coinAge = 0L,
+        txs = Seq(tx1InputTx, tx2InputTx)
       )
 
-      val toBeUsedInMint = PublicKey25519NoncedBox(wallet.publicKeys.head, 0L, 50L)
-      val tx1Input = PublicKey25519NoncedBox(wallet.publicKeys.head, 1L, 100L)
-      val tx2Input = PublicKey25519NoncedBox(wallet.publicKeys.head, 2L, 200L)
+
+      val tx1Input = tx1InputTx.newBoxes.head
+      val tx2Input = tx2InputTx.newBoxes.head
+
+      val history = (new NothingAtStakeCoinHistory).append(genesisBlock).get._1
+      val tx1 = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(tx1Input.nonce), IndexedSeq((wallet.publicKeys.head, 90L)), 0, 0)
+      val tx2 = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(tx2Input.nonce), IndexedSeq((wallet.publicKeys.head, 180L)), 0, 0)
 
       val minimalState = NothingAtStakeCoinMinimalState(
         Array.emptyByteArray,
@@ -145,32 +146,34 @@ class MinterSpec extends TestKit(ActorSystem("MinterSpec"))
     }
 
     scenario("Successful block generation") {
-      Given("There is a Minter process with a single transaction")
+      Given("There is a Minter")
       val probe = TestProbe()
       val minterRef = TestActorRef(Props(classOf[Minter], fakeSettings, probe.ref))
 
-      When("It receives empty history as CurrentView after starting")
+      When("It receives history with stake to be used")
       val wallet = NothingAtStakeCoinWallet(fakeSettings)
-      val genesisBlock = nothingAtSakeCoinBlockGenerator().sample.get
-      val history = (new NothingAtStakeCoinHistory).append(genesisBlock).get._1
-      val tx1 = NothingAtStakeCoinTransaction(
-        wallet.secrets.head,
-        IndexedSeq(1L),
-        IndexedSeq((wallet.publicKeys.head, 90L)),
-        10,
-        0
-      )
-      val tx2 = NothingAtStakeCoinTransaction(
-        wallet.secrets.head,
-        IndexedSeq(2L),
-        IndexedSeq((wallet.publicKeys.head, 180L)),
-        20,
-        0
+
+      val walletPk: PrivateKey25519 = wallet.secrets.head
+      val toBeUsedInMintTx = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(0L), IndexedSeq((wallet.publicKeys.head, 50L)), 10, 0)
+      val tx1InputTx = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(1L), IndexedSeq((wallet.publicKeys.head, 90L)), 10, 0)
+      val tx2InputTx = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(2L), IndexedSeq((wallet.publicKeys.head, 180L)), 10, 0)
+
+      val genesisBlock = NothingAtStakeCoinBlock(
+        parentId = NothingAtStakeCoinBlock.GenesisParentBlockId,
+        timestamp = 0L,
+        generatorKeys = walletPk,
+        coinAge = 0L,
+        txs = Seq(toBeUsedInMintTx, tx1InputTx, tx2InputTx)
       )
 
-      val toBeUsedInMint = PublicKey25519NoncedBox(wallet.publicKeys.head, 0L, 50L)
-      val tx1Input = PublicKey25519NoncedBox(wallet.publicKeys.head, 1L, 100L)
-      val tx2Input = PublicKey25519NoncedBox(wallet.publicKeys.head, 2L, 200L)
+
+      val toBeUsedInMint = toBeUsedInMintTx.newBoxes.head
+      val tx1Input = tx1InputTx.newBoxes.head
+      val tx2Input = tx2InputTx.newBoxes.head
+
+      val history = (new NothingAtStakeCoinHistory).append(genesisBlock).get._1
+      val tx1 = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(tx1Input.nonce), IndexedSeq((wallet.publicKeys.head, 90L)), 0, 0)
+      val tx2 = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(tx2Input.nonce), IndexedSeq((wallet.publicKeys.head, 180L)), 0, 0)
 
       val minimalState = NothingAtStakeCoinMinimalState(
         Array.emptyByteArray,
@@ -194,14 +197,13 @@ class MinterSpec extends TestKit(ActorSystem("MinterSpec"))
       })
       minterRef ! StartMinting
 
-      Then("It should not generate a block")
+      Then("It should generate the block")
       probe.fishForMessage(10.seconds, "Waiting For New Block") {
         case LocallyGeneratedModifier(generatedBlock) => {
-          val generatedTxs = generatedBlock.transactions.get.flatMap(t => t.asInstanceOf[NothingAtStakeCoinTransaction].to)
+          val generatedTxsWithoutReward = generatedBlock.transactions.get.tail.flatMap(t => t.asInstanceOf[NothingAtStakeCoinTransaction].to)
           generatedBlock.parentId.sameElements(genesisBlock.id) &&
             generatedBlock.transactions.get.size == 3 && // CoinStake Tx + 2 mined ones
-            generatedTxs.head.value == toBeUsedInMint.value &&
-            generatedTxs.tail.map(_.value).sum == tx1.to.map(_.value).sum + tx2.to.map(_.value).sum
+            generatedTxsWithoutReward.map(_.value).sum == tx1.to.map(_.value).sum + tx2.to.map(_.value).sum
         }
         case _ => false
       }

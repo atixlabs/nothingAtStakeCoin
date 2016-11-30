@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorRef}
 import scorex.core.LocalInterface.LocallyGeneratedModifier
 import scorex.core.NodeViewHolder
 import scorex.core.NodeViewHolder.CurrentView
+import scorex.core.block.Block.Timestamp
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.PrivateKey25519
 import scorex.core.utils.{NetworkTime, ScorexLogging}
@@ -47,7 +48,8 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
         val block: Option[NothingAtStakeCoinBlock] = memoryPool.take(settings.transactionsPerBlock).filter(minimalState.isValid) match {
           case txs: Iterable[NothingAtStakeCoinTransaction] if txs.size == settings.transactionsPerBlock =>
             log.info(s"[MintLoop] Transactions ${txs.size}  found")
-            val coinStakeBoxes = getCoinStakeBoxes(wallet, minimalState, txs).toSeq
+            val timestamp = NetworkTime.time()
+            val coinStakeBoxes = getCoinStakeBoxes(history, wallet, minimalState, txs, timestamp).toSeq
             log.info(s"[MintLoop] ${coinStakeBoxes.size} coinstake boxes found")
             if (coinStakeBoxes.nonEmpty) {
               log.info("[MintLoop] Stake found, about to generate block")
@@ -56,7 +58,7 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
                 .flatten
                 .sortBy(_.timestamp)
               val txsToIncludeInBlock = txs.take(settings.transactionsPerBlock).toSeq
-              generateBlock(wallet.secrets.head, parentBlocks.head, coinStakeBoxes, txsToIncludeInBlock, NetworkTime.time(), history)
+              generateBlock(wallet.secrets.head, parentBlocks.head, coinStakeBoxes, txsToIncludeInBlock, timestamp, history)
             } else {
               log.info("[MintLoop] No stake to mint found")
               None
@@ -77,20 +79,26 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
 
   /**
     * This method gets from minimal state all boxes that can be used in coinstake tx as input, ie, the ones that are
-    * not being used as input in the current transaction
+    * not being used as input in the current transaction and generate some reward
     *
     * @return Boxes that can be used in minting process
     */
-  def getCoinStakeBoxes(wallet: NothingAtStakeCoinWallet,
+  def getCoinStakeBoxes(history: NothingAtStakeCoinHistory,
+                        wallet: NothingAtStakeCoinWallet,
                         minimalState: NothingAtStakeCoinMinimalState,
-                        txs: Iterable[NothingAtStakeCoinTransaction]): Set[PublicKey25519NoncedBox] = {
+                        txs: Iterable[NothingAtStakeCoinTransaction],
+                        timestamp: Timestamp): Set[PublicKey25519NoncedBox] = {
 
     val txUnspents = txs.flatMap(_.from).foldLeft(Set[(PublicKey25519Proposition, Nonce)]()) {
       case (unspents, input) => unspents + (input.proposition -> input.nonce)
     }
 
-    wallet.publicKeys.flatMap(minimalState.boxesOf).filter(unspent => !txUnspents.contains(unspent.proposition -> unspent.nonce))
-
+    wallet.publicKeys.flatMap(minimalState.boxesOf)
+      .filter(unspent => !txUnspents.contains(unspent.proposition -> unspent.nonce))
+      .filter(unspent => {
+        val reward = history.getStakeReward(IndexedSeq(NothingAtStakeCoinInput(unspent.proposition, unspent.nonce)), timestamp)
+        reward.isSuccess && reward.get > 0
+      })
   }
 
   override def receive: Receive = stopped
@@ -110,11 +118,11 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
     maybeStakeReward match {
       case Success(reward) =>
         val stakeTransactionWithReward = NothingAtStakeCoinTransaction(
-          minterPk,
-          nonceFrom,
-          (minterPk.publicImage, reward) +: to,
-          0,
-          timestamp
+          fromPk = minterPk,
+          from = nonceFrom,
+          to = (minterPk.publicImage, reward) +: to,
+          fee = 0,
+          timestamp = timestamp
         )
         history.getCoinAge(stakeTransactionWithReward +: txs) match {
           case Success(blockCoinAge) => Some(NothingAtStakeCoinBlock(

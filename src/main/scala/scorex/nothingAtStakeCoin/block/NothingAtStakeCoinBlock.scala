@@ -72,7 +72,7 @@ object NothingAtStakeCoinBlock {
 
   val CoinAgeLengthSize = 8
 
-  lazy val GenesisBlockId: ModifierId = Array.fill(NodeViewModifier.ModifierIdSize)(1: Byte)
+  lazy val GenesisParentBlockId: ModifierId = Array.fill(NodeViewModifier.ModifierIdSize)(1: Byte)
   lazy val EmptyChainId: ModifierId = Array.fill(NodeViewModifier.ModifierIdSize)(0: Byte)
 
   def apply(parentId: ModifierId,

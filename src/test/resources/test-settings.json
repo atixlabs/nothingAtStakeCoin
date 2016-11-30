@@ -22,8 +22,9 @@
   "blockGenerationDelay": 0,
   "cors": false,
   "nothingAtStakeCoin": {
-    "transactionsPerBlock": 2,
     "genesisTransactions": 10,
+    "createGenesisBlock": true,
+    "transactionsPerBlock": 2,
     "genesisTransactionAmount": 1000000,
     "minStakeMinutes": 1,
     "maxStakeMinutes": 10,

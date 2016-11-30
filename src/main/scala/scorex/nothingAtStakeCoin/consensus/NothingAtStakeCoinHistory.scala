@@ -279,6 +279,8 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
         }
       }
     }
+
+
   }
 
   /**

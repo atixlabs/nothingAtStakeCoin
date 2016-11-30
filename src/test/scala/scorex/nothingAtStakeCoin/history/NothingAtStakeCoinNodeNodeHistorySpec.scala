@@ -67,7 +67,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
           timestamp
         ) +: prevTxs
     }
-    val genesisBlock = NothingAtStakeCoinBlock(NothingAtStakeCoinBlock.GenesisBlockId, timestamp, fromPk, 0, emptyTx +: txs)
+    val genesisBlock = NothingAtStakeCoinBlock(NothingAtStakeCoinBlock.GenesisParentBlockId, timestamp, fromPk, 0, emptyTx +: txs)
     val history = insertBlock(NothingAtStakeCoinHistory(), genesisBlock).get
     (history, genesisBlock)
   }

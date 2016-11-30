@@ -43,7 +43,7 @@ class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings)
       val pubKeyGenesisBlock = wallet.publicKeys.head
 
       val genesisBlock = NothingAtStakeCoinBlock(
-        parentId = NothingAtStakeCoinBlock.GenesisBlockId,
+        parentId = NothingAtStakeCoinBlock.GenesisParentBlockId,
         timestamp = 0,
         generatorKeys = wallet.secretByPublicImage(pubKeyGenesisBlock).get,
         coinAge = 0,
