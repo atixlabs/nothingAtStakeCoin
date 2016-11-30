@@ -59,9 +59,9 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
         Success((newHistory, None))
       case _ =>
         val uniqueTxs: Boolean = block.txs.toSet.size == block.txs.length //Check for duplicate txs
-      val blockSignatureValid: Boolean = block.generator.verify(//Check block generator matches signature
-        block.companion.messageToSign(block),
-        block.generationSignature)
+        val blockSignatureValid: Boolean = block.generator.verify(//Check block generator matches signature
+          block.companion.messageToSign(block),
+          block.generationSignature)
         val stakeTxValid: Boolean = block.txs.nonEmpty && checkStakeTx(block.txs.head, block.generator)
         val blockTimestampValid: Boolean = block.txs.forall(_.timestamp <= block.timestamp)
 
@@ -72,7 +72,9 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
         if (uniqueTxs &&
           blockSignatureValid &&
           stakeTxValid &&
-          blockTimestampValid
+          blockTimestampValid &&
+          validCoinAge &&
+          numberOfTxPerBlockValid
         ) {
           log.debug(s"Appending conditions met for block ${block.idAsString()}")
 
@@ -187,6 +189,17 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
 
   override def companion: NodeViewComponentCompanion = ???
 
+  /**
+    * This method takes a number x in an interval [lower, upper] and scales it so that xScaled is proportional to x and
+    * is in interval [newLower, newUpper]
+    */
+  private def scaleNumber(x: Long, lower: Long, upper: Long, newLower: Long, newUpper: Long): Long = {
+    require(lower<=x && x<=upper)
+    val proportion: Double = (x-lower).toDouble/(upper-lower)
+    val xScaled: Double = proportion*(newUpper-newLower) + newLower
+    xScaled.toLong
+  }
+
   private def getCoinAge(txFrom: IndexedSeq[NothingAtStakeCoinInput], txTimestamp: Timestamp): Try[CoinAgeLength] = {
     val maybePartialCoinAge = txFrom.foldLeft[Try[BigInt]](Success(0: BigInt)) { case (prevCalculation, txFromInput) =>
       prevCalculation match {
@@ -205,11 +218,18 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
             case Some(output) if txTimestamp >= maybeTx.get.timestamp =>
               val timestampDiff = txTimestamp - maybeTx.get.timestamp match {
                 case tDiff if tDiff < NothingAtStakeCoinHistory.STAKE_MIN_AGE => 0
-                case tDiff if tDiff > NothingAtStakeCoinHistory.STAKE_MAX_AGE => NothingAtStakeCoinHistory.STAKE_MAX_AGE
-                case tDiff => tDiff
+                case tDiff if tDiff > NothingAtStakeCoinHistory.STAKE_MAX_AGE => NothingAtStakeCoinHistory.daysToMs*90
+                case tDiff => {
+                  val scaledTimestampDiff: Long = scaleNumber(
+                    x = tDiff,
+                    lower = NothingAtStakeCoinHistory.STAKE_MIN_AGE,
+                    upper = NothingAtStakeCoinHistory.STAKE_MAX_AGE,
+                    newLower = NothingAtStakeCoinHistory.daysToMs*30,
+                    newUpper = NothingAtStakeCoinHistory.daysToMs*90)
+                  scaledTimestampDiff
+                }
               }
-              val inputValue: BigInt = maybeOutput.get.value
-              Success(prevCoinAge + inputValue * timestampDiff / NothingAtStakeCoinHistory.CENT)
+              Success(prevCoinAge + (maybeOutput.get.value: BigInt) * timestampDiff / NothingAtStakeCoinHistory.CENT)
             case None => Failure(new Exception("getCoinAge: tx from tx.from was not found in history.outputBlockLocations"))
           }
         case Failure(e) => prevCalculation
