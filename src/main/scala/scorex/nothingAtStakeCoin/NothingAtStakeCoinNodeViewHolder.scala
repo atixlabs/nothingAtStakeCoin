@@ -4,7 +4,7 @@ import scorex.core.NodeViewModifier.ModifierTypeId
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.{NodeViewHolder, NodeViewModifier, NodeViewModifierCompanion}
 import scorex.nothingAtStakeCoin.block.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion, NothingAtStakeCoinSyncInfo}
-import scorex.nothingAtStakeCoin.consensus.NothingAtStakeCoinHistory
+import scorex.nothingAtStakeCoin.consensus.{HistorySettings, NothingAtStakeCoinHistory}
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 import scorex.nothingAtStakeCoin.transaction.state.NothingAtStakeCoinMinimalState
 import scorex.nothingAtStakeCoin.transaction.wallet.NothingAtStakeCoinWallet
@@ -26,6 +26,11 @@ class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings)
 
     log.debug("Generating genesis state")
     val wallet: NothingAtStakeCoinWallet = NothingAtStakeCoinWallet(settings)
+
+    val historySettings = HistorySettings(
+      numberOfBestChains = settings.numberOfBestChains,
+      stakeMaxAgeInMs = settings.maxStakeMinutes * 60 * 1000,
+      stakeMinAgeInMs = settings.minStakeMinutes * 60 * 1000)
 
     if (settings.createGenesisBlock) {
       val genesisTxs = (1 to settings.genesisTransactions).flatMap { _ =>
@@ -52,11 +57,11 @@ class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings)
 
       val minimalState = NothingAtStakeCoinMinimalState.genesisState().applyModifier(genesisBlock).get
 
-      val history = NothingAtStakeCoinHistory(numberOfBestChains = settings.numberOfBestChains).append(genesisBlock)
+      val history = NothingAtStakeCoinHistory(historySettings = historySettings).append(genesisBlock)
 
       (history.get._1, minimalState, wallet, NothingAtStakeCoinMemoryPool.emptyPool)
     } else
-      (NothingAtStakeCoinHistory(numberOfBestChains = settings.numberOfBestChains),
+      (NothingAtStakeCoinHistory(historySettings = historySettings),
         NothingAtStakeCoinMinimalState.genesisState(),
         wallet,
         NothingAtStakeCoinMemoryPool.emptyPool)

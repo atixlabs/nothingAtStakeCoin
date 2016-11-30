@@ -21,11 +21,14 @@ import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinInput, NothingAt
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
+// 30 and 90 days
+case class HistorySettings(numberOfBestChains: Int = 10, stakeMinAgeInMs: Long = 2592000000L, stakeMaxAgeInMs: Long = 7776000000L)
+
 case class OutputBlockLocation(blockId: ByteBuffer, blockIndex: BlockIndexLength, txOutputIndex: TxOutputIndexLength)
 
 case class BlockNodeInfo(sons: List[ByteBuffer] = List(), levelsFromRoot: Int, insertionOrder: Long)
 
-case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
+case class NothingAtStakeCoinHistory(historySettings: HistorySettings = HistorySettings(),
                                      genesisBlockId: Option[ByteBuffer] = None,
                                      blocks: Map[ByteBuffer, NothingAtStakeCoinBlock] = Map(),
                                      blocksNodeInfo: Map[ByteBuffer, BlockNodeInfo] = Map(),
@@ -45,8 +48,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
   override def append(block: NothingAtStakeCoinBlock): Try[(NothingAtStakeCoinHistory, Option[RollbackTo[NothingAtStakeCoinBlock]])] = {
     log.debug(s"Appending block ${block.idAsString()} to history")
     if (this.isEmpty) {
-      val newHistory = NothingAtStakeCoinHistory(
-        numberOfBestChains = numberOfBestChains,
+      val newHistory = this.copy(
         genesisBlockId = Some(wrapId(block.id)),
         blocks = Map(wrapId(block.id) -> block),
         blocksNodeInfo = Map(wrapId(block.id) -> BlockNodeInfo(
@@ -121,7 +123,6 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
             val toRemoveId = wrapId(blockToRemove.id)
             val newSons = currHistory.changeSons(wrapId(blockToRemove.parentId), toRemoveId, isAdd = false).get
             currHistory.copy(
-              numberOfBestChains = currHistory.numberOfBestChains,
               blocks = currHistory.blocks - toRemoveId,
               blocksNodeInfo = newSons,
               bestNChains = currHistory.bestNChains,
@@ -210,13 +211,13 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
               Failure(new Exception("getCoinAge: tx output is used in a tx before it according to timestamps"))
             case Some(output) if txTimestamp >= maybeTx.get.timestamp =>
               val timestampDiff = txTimestamp - maybeTx.get.timestamp match {
-                case tDiff if tDiff < NothingAtStakeCoinHistory.STAKE_MIN_AGE => 0
-                case tDiff if tDiff > NothingAtStakeCoinHistory.STAKE_MAX_AGE => NothingAtStakeCoinHistory.daysToMs * 90
+                case tDiff if tDiff < historySettings.stakeMinAgeInMs => 0
+                case tDiff if tDiff > historySettings.stakeMaxAgeInMs => NothingAtStakeCoinHistory.daysToMs * 90
                 case tDiff => {
                   val scaledTimestampDiff: Long = scaleNumber(
                     x = tDiff,
-                    lower = NothingAtStakeCoinHistory.STAKE_MIN_AGE,
-                    upper = NothingAtStakeCoinHistory.STAKE_MAX_AGE,
+                    lower = historySettings.stakeMinAgeInMs,
+                    upper = historySettings.stakeMaxAgeInMs,
                     newLower = NothingAtStakeCoinHistory.daysToMs * 30,
                     newUpper = NothingAtStakeCoinHistory.daysToMs * 90)
                   scaledTimestampDiff
@@ -301,7 +302,8 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
   private def leastCoinAgeFromBestChains: NothingAtStakeCoinBlock = bestNChains.
     flatMap(id => blockById(id)).minBy[NothingAtStakeCoinBlock.CoinAgeLength](b => b.coinAge)
 
-  private def belongsToBestN(coinAge: CoinAgeLength): Boolean = bestNChains.size < numberOfBestChains || leastCoinAgeFromBestChains.coinAge < coinAge
+  private def belongsToBestN(coinAge: CoinAgeLength): Boolean =
+    bestNChains.size < historySettings.numberOfBestChains || leastCoinAgeFromBestChains.coinAge < coinAge
 
   private def updateBestN(newBlock: NothingAtStakeCoinBlock): (List[ByteBuffer], Option[ByteBuffer]) = {
     val newBlockId = wrapId(newBlock.id)
@@ -310,7 +312,7 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
       case Some(newBlockParent: NothingAtStakeCoinBlock) if bestNChains.contains(wrapId(newBlockParent.id)) =>
         (newBlockId +: bestNChains.filterNot(b => b == newBlockParentId), None)
       case _ =>
-        if (bestNChains.size < numberOfBestChains) {
+        if (bestNChains.size < historySettings.numberOfBestChains) {
           (newBlockId +: bestNChains, None)
         } else {
           val worstBlock = leastCoinAgeFromBestChains
@@ -414,8 +416,6 @@ object NothingAtStakeCoinHistory {
   val COIN = 1000000
 
   val daysToMs: Long = 60 * 60 * 24 * 1000
-  val STAKE_MIN_AGE: Long = daysToMs * 30
-  val STAKE_MAX_AGE: Long = daysToMs * 90
 
   val insertionOrder: AtomicLong = new AtomicLong(0)
 
