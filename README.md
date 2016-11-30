@@ -18,6 +18,7 @@ The following simplifications were made:
 - We haven't included a Merkle tree in the block structure
 - Most of the structures we used (for example to store the blocks) are in-memory. 
 - We created a super simple wallet with a single address / secret.
+- Miner cannot be stopped nor coins be reserved (preventing the minter to grab them)
 
 ## How to run
 
@@ -39,6 +40,17 @@ Besides Scorex configuration defined in a settings.json file, the following para
 The easiest way to run the app is using [sbt](http://www.scala-sbt.org/). Once installed, go to project root and run
 
 `sbt "run-main scorex.nothingAtStakeCoin.NothingAtStakeCoin ABSOLUTE_PATH_TO_SETTINGS_JSON"`
+
+*Please configure just one node with the option `createGenesisBlock`, if not, consensus won't be reached*
+
+### Playing with the app
+
+Provided by scorex, this app allows Rest API endpoint if configured in settings.json. Then, after accessing to localhost:$rpcPort you will be able to execute several commands against the app.
+
+1. `GET /nodeView/openSurface` will return the bestNChains
+2. `GET /nodeView/persistentModifier/{id}` will allow you to see all the blocks by id
+3. `GET /wallet` will return your wallet address
+4. `POST /payment` will allow you to send coins (if you have them) to another address(es)
 
 ## Tests
 
