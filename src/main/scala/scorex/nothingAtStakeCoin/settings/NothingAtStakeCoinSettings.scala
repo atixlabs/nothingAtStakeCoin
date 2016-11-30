@@ -6,9 +6,11 @@ import scorex.core.settings.Settings
 abstract class NothingAtStakeCoinSettings extends Settings {
   def nothingAtStakeCoinSettings: Map[String, Json] = settingsJSON("nothingAtStakeCoin").asObject.get.toMap
 
+  def transactionsPerBlock: Int = nothingAtStakeCoinSettings("transactionsPerBlock").as[Int].toTry.get
+
   def genesisTransactions: Int = nothingAtStakeCoinSettings("genesisTransactions").as[Int].toTry.get
 
-  def transactionsPerBlock: Int = nothingAtStakeCoinSettings("transactionsPerBlock").as[Int].toTry.get
+  def createGenesisBlock: Boolean = nothingAtStakeCoinSettings("createGenesisBlock").as[Boolean].getOrElse(false)
 
   def genesisTransactionAmount: Long = nothingAtStakeCoinSettings("genesisTransactionAmount").as[Long].toTry.get
 

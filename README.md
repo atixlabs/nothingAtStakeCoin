@@ -27,6 +27,7 @@ Besides Scorex configuration defined in a settings.json file, the following para
 | Key     | Description |
 |---------|-------------|
 |transactionsPerBlock | Number of transactions to be included in a block |
+|createGenesisBlock  | Boolean value to switch the genesis block creation | 
 |genesisTransactions | Transactions to be created when creating the initial state |
 |genesisTransactionAmount | Transaction amount that will be included in the genesis state |
 |minStakeMinutes | Minimum time (in minutes) an output needs to be unspent in order to be used in minting process |

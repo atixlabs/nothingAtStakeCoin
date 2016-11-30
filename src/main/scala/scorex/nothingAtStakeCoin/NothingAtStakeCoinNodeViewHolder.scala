@@ -23,37 +23,44 @@ class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings)
     Map(NothingAtStakeCoinBlock.ModifierTypeId -> NothingAtStakeCoinBlockCompanion)
 
   override protected def genesisState: (HIS, MS, VL, MP) = {
-    log.debug("Generating genesis block")
 
+    log.debug("Generating genesis state")
     val wallet: NothingAtStakeCoinWallet = NothingAtStakeCoinWallet(settings)
 
-    val genesisTxs = (1 to settings.genesisTransactions).flatMap { _ =>
-      wallet.publicKeys.map { pub =>
-        val priv = wallet.secretByPublicImage(pub).get
-        NothingAtStakeCoinTransaction(
-          priv,
-          IndexedSeq(Random.nextLong()),
-          IndexedSeq((pub, settings.genesisTransactionAmount)),
-          0L,
-          0L)
-      }.toSeq
-    }.take(settings.genesisTransactions)
+    if (settings.createGenesisBlock) {
+      val genesisTxs = (1 to settings.genesisTransactions).flatMap { _ =>
+        wallet.publicKeys.map { pub =>
+          val priv = wallet.secretByPublicImage(pub).get
+          NothingAtStakeCoinTransaction(
+            priv,
+            IndexedSeq(Random.nextLong()),
+            IndexedSeq((pub, settings.genesisTransactionAmount)),
+            0L,
+            0L)
+        }.toSeq
+      }.take(settings.genesisTransactions)
 
-    val pubKeyGenesisBlock = wallet.publicKeys.head
+      val pubKeyGenesisBlock = wallet.publicKeys.head
 
-    val genesisBlock = NothingAtStakeCoinBlock(
-      parentId = NothingAtStakeCoinBlock.GenesisBlockId,
-      timestamp = 0,
-      generatorKeys = wallet.secretByPublicImage(pubKeyGenesisBlock).get,
-      coinAge = Long.MaxValue,
-      txs = genesisTxs
-    )
+      val genesisBlock = NothingAtStakeCoinBlock(
+        parentId = NothingAtStakeCoinBlock.GenesisBlockId,
+        timestamp = 0,
+        generatorKeys = wallet.secretByPublicImage(pubKeyGenesisBlock).get,
+        coinAge = 0,
+        txs = genesisTxs
+      )
 
-    val minimalState = NothingAtStakeCoinMinimalState.genesisState().applyModifier(genesisBlock).get
+      val minimalState = NothingAtStakeCoinMinimalState.genesisState().applyModifier(genesisBlock).get
 
-    val history = new NothingAtStakeCoinHistory(numberOfBestChains = settings.numberOfBestChains).append(genesisBlock)
+      val history = NothingAtStakeCoinHistory(numberOfBestChains = settings.numberOfBestChains).append(genesisBlock)
 
-    (history.get._1, minimalState, wallet, NothingAtStakeCoinMemoryPool.emptyPool)
+      (history.get._1, minimalState, wallet, NothingAtStakeCoinMemoryPool.emptyPool)
+    } else
+      (NothingAtStakeCoinHistory(numberOfBestChains = settings.numberOfBestChains),
+        NothingAtStakeCoinMinimalState.genesisState(),
+        wallet,
+        NothingAtStakeCoinMemoryPool.emptyPool)
+
   }
 
   override def restoreState(): Option[(
