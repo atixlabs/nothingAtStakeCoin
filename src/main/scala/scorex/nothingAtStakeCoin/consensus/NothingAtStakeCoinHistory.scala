@@ -264,22 +264,21 @@ case class NothingAtStakeCoinHistory(numberOfBestChains: Int = 10,
   History.HistoryComparisonResult.Value = {
     // This consensus algorithm tries to find if the other node has at least a younger branch (not included in best chains)
     // in order to let the peers receive them
-    if (otherBestNChains.isEmpty) {
-      comparisonResult
-    } else
-      comparisonResult match {
-        case HistoryComparisonResult.Younger => comparisonResult
-        case (HistoryComparisonResult.Equal | HistoryComparisonResult.Older) if otherBestNChains.nonEmpty =>
-          val itemToCompare = otherBestNChains.head
-          val maybeOurBlockNumberOfSons = blocksNodeInfo.get(wrapId(itemToCompare._1))
-          (maybeOurBlockNumberOfSons, itemToCompare) match {
-            case (Some(blockNodeInfo), _) if blockNodeInfo.sons.nonEmpty => HistoryComparisonResult.Younger
-            case (Some(blockNodeInfo), _) if blockNodeInfo.sons.isEmpty => compareRecursive(comparisonResult, otherBestNChains.tail)
-            case (None, (_, coinAge: CoinAgeLength)) =>
-              if (belongsToBestN(coinAge)) compareRecursive(HistoryComparisonResult.Older, otherBestNChains.tail)
-              else HistoryComparisonResult.Younger
-          }
+    (otherBestNChains.isEmpty, comparisonResult) match {
+      case (true, _) => comparisonResult
+      case (false, HistoryComparisonResult.Younger) => comparisonResult
+      case _ => {
+        val itemToCompare = otherBestNChains.head
+        val maybeOurBlockNumberOfSons = blocksNodeInfo.get(wrapId(itemToCompare._1))
+        (maybeOurBlockNumberOfSons, itemToCompare) match {
+          case (Some(blockNodeInfo), _) if blockNodeInfo.sons.nonEmpty => HistoryComparisonResult.Younger
+          case (Some(blockNodeInfo), _) if blockNodeInfo.sons.isEmpty => compareRecursive(comparisonResult, otherBestNChains.tail)
+          case (None, (_, coinAge: CoinAgeLength)) =>
+            if (belongsToBestN(coinAge)) compareRecursive(HistoryComparisonResult.Older, otherBestNChains.tail)
+            else HistoryComparisonResult.Younger
+        }
       }
+    }
   }
 
   /**
