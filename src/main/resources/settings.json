@@ -25,7 +25,7 @@
     "genesisTransactions": 10,
     "createGenesisBlock": true,
     "transactionsPerBlock": 10,
-    "genesisTransactionAmount": 1000000,
+    "genesisTransactionAmount": 200000000,
     "minStakeMinutes": 1,
     "maxStakeMinutes": 10,
     "numberOfBestChains": 10
