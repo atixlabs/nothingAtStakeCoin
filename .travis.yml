@@ -4,5 +4,5 @@ scala:
 jdk:
   - oraclejdk8
 before_install:
-  - git clone https://github.com/ScorexFoundation/Scorex.git /tmp/Scorex && cd /tmp/Scorex && sbt publish-local
+  - git clone https://github.com/ScorexFoundation/Scorex.git /tmp/Scorex && cd /tmp/Scorex && git reset --hard 6a3bfe6365d825184c981dd6ea5c8c0a7f02c892 && sbt publish-local
   - cd /home/travis/build/atixlabs/nothingAtStakeCoin
