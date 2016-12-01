@@ -421,11 +421,6 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
   }
 
   feature("tx coin age is correctly calculated") {
-    /*
-     *  We use:   STAKE_MIN_AGE = 30
-     *            STAKE_MAX_AGE = 90
-     *            numberOfTxsPerBlock = 10
-     */
     scenario("tx input has timestamp less than STAKE_MIN_AGE") {
       Given("a history with a genesis block with tx of timestamp 0")
       val daysToMs = NothingAtStakeCoinHistory.daysToMs
