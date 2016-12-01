@@ -133,7 +133,7 @@ object NothingAtStakeCoinBlockCompanion extends NodeViewModifierCompanion[Nothin
     val optionalTxs = NothingAtStakeCoinNodeNodeViewModifierCompanion.parseTransactionsArray(cntTxs, txsBytes)
     optionalTxs match {
       case Success(txs) => {
-        val body = if (hasStakeTx) NothingAtStakeCoinBlockBody(Some(txs.head), txs.tail) else NothingAtStakeCoinBlockBody(None, txs.tail)
+        val body = if (hasStakeTx) NothingAtStakeCoinBlockBody(Some(txs.head), txs.tail) else NothingAtStakeCoinBlockBody(None, txs)
         NothingAtStakeCoinBlock(
           parentId = parentId,
           timestamp = timestamp,
