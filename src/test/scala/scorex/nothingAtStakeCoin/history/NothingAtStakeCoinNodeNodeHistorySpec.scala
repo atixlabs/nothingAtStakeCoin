@@ -406,7 +406,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
       Then("The new history should the correct bestNChains")
       afterAppendHistory.bestNChains.size shouldEqual numberOfBestChains // be the maxValue
       for (block <- Seq(block6, block7, block8))
-        afterAppendHistory.bestNChains.contains(ByteBuffer.wrap(block.id)) shouldEqual true
+        afterAppendHistory.bestNChains.contains(wrapId(block.id)) shouldEqual true
 
       Then("Rollback history should be ok")
       rollbackTo.isDefined shouldEqual true
@@ -981,7 +981,7 @@ object NothingAtStakeCoinNodeNodeHistorySpec {
     val (txs, newUnusedBoxes) = nothingAtStakeCoinTransactionSeqConstructor(numberOfTxsPerBlock, blockTimestamp, unusedBoxes, numberOfOutputsPerTx, fromPk)
     val coinStakeTx = NothingAtStakeCoinTransaction(IndexedSeq(), IndexedSeq(), IndexedSeq(), 0, blockTimestamp)
     val blockCoinAge: CoinAgeLength = if (parentId.isDefined) history.getCoinAge(txs).get else 0
-    val coinAgeParent: CoinAgeLength = if (parentId.isDefined) history.blocks(ByteBuffer.wrap(parentId.get)).coinAge else 0
+    val coinAgeParent: CoinAgeLength = if (parentId.isDefined) history.blocks(wrapId(parentId.get)).coinAge else 0
     (NothingAtStakeCoinBlock(
       //If parentId.isEmpty then we are creating a genesis block
       parentId = parentId.getOrElse(NothingAtStakeCoinBlock.GenesisParentBlockId),

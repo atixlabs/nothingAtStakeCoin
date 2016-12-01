@@ -54,7 +54,7 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
             if (coinStakeBoxes.nonEmpty) {
               log.info("[MintLoop] Stake found, about to generate block")
               val parentBlocks = history.openSurfaceIds()
-                .foldLeft(Seq[Option[NothingAtStakeCoinBlock]]())((list, blockId) => list :+ history.blockById(blockId))
+                .foldLeft(Seq[Option[NothingAtStakeCoinBlock]]())((list, blockId) => history.blockById(blockId) +: list)
                 .flatten
                 .sortBy(_.timestamp)
               val txsToIncludeInBlock = txs.take(settings.transactionsPerBlock).toSeq
