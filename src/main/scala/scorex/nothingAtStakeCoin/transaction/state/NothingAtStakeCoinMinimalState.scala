@@ -34,7 +34,7 @@ case class NothingAtStakeCoinMinimalState(
   override def changes(mod: NothingAtStakeCoinBlock): Try[StateChanges[PublicKey25519Proposition, PublicKey25519NoncedBox]] = {
     Try {
       val isNotGenesis = !(mod.parentId sameElements NothingAtStakeCoinBlock.GenesisParentBlockId)
-      if (isNotGenesis && !areValid(mod.transactions.get.tail)) throw new RuntimeException(s"Invalid transaction detected in block ${mod.idAsString()}")
+      if (isNotGenesis && !areValid(mod.transactions.get.tail)) throw new RuntimeException(s"Invalid transaction detected in block ${mod.encodedId}")
 
       val initial = (Set(): Set[Array[Byte]], Set(): Set[PublicKey25519NoncedBox])
       val toChange = mod.txs.foldLeft(initial) {

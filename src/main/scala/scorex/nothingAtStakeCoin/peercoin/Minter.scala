@@ -67,9 +67,9 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
         }
 
         if (block.isDefined) {
-          log.info(s"[MintLoop] Generated block! ${block.get.idAsString()}")
+          log.info(s"[MintLoop] Generated block! ${block.get.encodedId}")
           viewHolderRef ! LocallyGeneratedModifier.apply[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock](block.get)
-          log.info(s"[MintLoop] Block sent to view holder ${block.get.idAsString()}")
+          log.info(s"[MintLoop] Block sent to view holder ${block.get.encodedId}")
         } else {
           log.info("[MintLoop] No block generated")
         }

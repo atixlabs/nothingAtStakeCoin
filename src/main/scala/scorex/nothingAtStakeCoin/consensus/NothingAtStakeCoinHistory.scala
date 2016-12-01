@@ -48,7 +48,7 @@ case class NothingAtStakeCoinHistory(historySettings: HistorySettings = HistoryS
   override def blockById(blockId: BlockId): Option[NothingAtStakeCoinBlock] = blockById(wrapId(blockId))
 
   override def append(block: NothingAtStakeCoinBlock): Try[(NothingAtStakeCoinHistory, Option[RollbackTo[NothingAtStakeCoinBlock]])] = {
-    log.debug(s"Appending block ${block.idAsString()} to history")
+    log.debug(s"Appending block ${block.encodedId} to history")
     if (this.isEmpty) {
       val newHistory = this.copy(
         genesisBlockId = Some(wrapId(block.id)),
@@ -71,7 +71,7 @@ case class NothingAtStakeCoinHistory(historySettings: HistorySettings = HistoryS
       val numberOfTxPerBlockValid: Boolean = block.txs.length == historySettings.transactionsPerBlock + 1 // stake tx
 
       if (uniqueTxs && blockSignatureValid && stakeTxValid && blockTimestampValid && validCoinAge && numberOfTxPerBlockValid) {
-        log.debug(s"Appending conditions met for block ${block.idAsString()}")
+        log.debug(s"Appending conditions met for block ${block.encodedId}")
 
         /* Add block */
         val (newBestN, blockIdToRemove) = updateBestN(block)
@@ -174,7 +174,7 @@ case class NothingAtStakeCoinHistory(historySettings: HistorySettings = HistoryS
         log.debug(s"RollbackTo ${Base58.encode(commonParent.array())} from history")
         val newHistory = blocksToRemove.foldLeft[NothingAtStakeCoinHistory](this) {
           (currHistory: NothingAtStakeCoinHistory, blockToRemove: NothingAtStakeCoinBlock) =>
-            log.debug(s"Removing block ${blockToRemove.idAsString()} from history")
+            log.debug(s"Removing block ${blockToRemove.encodedId} from history")
             //Remove txs from outputBlockLocations
             val blockToRemoveOutputs = blockToRemove.txs.flatMap(tx => tx.newBoxes.map(box => wrapId(box.id)))
             val newOutputBlockLocations = currHistory.outputBlockLocations -- blockToRemoveOutputs
