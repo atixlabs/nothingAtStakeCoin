@@ -40,7 +40,7 @@ case class NothingAtStakeCoinBlock(override val parentId: ModifierId,
   override def companion: C = NothingAtStakeCoinBlockCompanion
 
   override def json: Json = Map(
-    "id" -> idAsString().asJson,
+    "id" -> encodedId.asJson,
     "parentId" -> Base58.encode(parentId).asJson,
     "timestamp" -> timestamp.asJson,
     "generationSignature" -> Base58.encode(generationSignature).asJson,
@@ -49,7 +49,6 @@ case class NothingAtStakeCoinBlock(override val parentId: ModifierId,
     "txs" -> txs.map(_.json).asJson
   ).asJson
 
-  def idAsString(): String = Base58.encode(id)
 }
 
 object NothingAtStakeCoinBlock {
