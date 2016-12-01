@@ -154,7 +154,7 @@ class MinterSpec extends TestKit(ActorSystem("MinterSpec"))
       val wallet = NothingAtStakeCoinWallet(fakeSettings)
 
       val walletPk: PrivateKey25519 = wallet.secrets.head
-      val toBeUsedInMintTx = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(0L), IndexedSeq((wallet.publicKeys.head, 50L)), 10, 0)
+      val toBeUsedInMintTx = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(0L), IndexedSeq((wallet.publicKeys.head, 200000000L)), 10, 0)
       val tx1InputTx = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(1L), IndexedSeq((wallet.publicKeys.head, 90L)), 10, 0)
       val tx2InputTx = NothingAtStakeCoinTransaction(walletPk, IndexedSeq(2L), IndexedSeq((wallet.publicKeys.head, 180L)), 10, 0)
 
