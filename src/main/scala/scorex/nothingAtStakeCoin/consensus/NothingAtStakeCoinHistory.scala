@@ -206,7 +206,7 @@ case class NothingAtStakeCoinHistory(historySettings: HistorySettings = HistoryS
 
   private def getCoinAge(txFrom: IndexedSeq[NothingAtStakeCoinInput], txTimestamp: Timestamp): Try[CoinAgeLength] = {
     val maybePartialCoinAge = txFrom.foldLeft[Try[BigInt]](Success(0: BigInt)) { case (prevCalculation, txFromInput) =>
-      prevCalculation.map{ prevCoinAge =>
+      prevCalculation.flatMap{ prevCoinAge =>
           val maybeBlockLocation = outputBlockLocations.get(wrapId(txFromInput.id))
           val maybeBlock: Option[NothingAtStakeCoinBlock] = maybeBlockLocation.flatMap(blockLocation => blocks.get(blockLocation.blockId))
           val maybeTx: Option[NothingAtStakeCoinTransaction] = maybeBlock.flatMap(block => Try {
