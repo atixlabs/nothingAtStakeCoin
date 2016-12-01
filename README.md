@@ -20,6 +20,7 @@ The following simplifications were made:
 - Most of the structures we used (for example to store the blocks) are in-memory. 
 - We created a super simple wallet with a single address / secret.
 - Miner cannot be stopped nor coins be reserved (preventing the minter to grab them)
+- A corner case in the block appending and removal from the blockchain was detected but not currently solved. The blockchain could be in a non consistent way if any of the outputs in the transactions of a block being removed was used as an input in the transactions of another block that will not be deleted (both blocks belong to different branches of the blockchain).
 
 ## How to run
 
