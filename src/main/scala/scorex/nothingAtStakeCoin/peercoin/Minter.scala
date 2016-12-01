@@ -56,7 +56,7 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
               val parentBlocks = history.openSurfaceIds()
                 .foldLeft(Seq[Option[NothingAtStakeCoinBlock]]())((list, blockId) => history.blockById(blockId) +: list)
                 .flatten
-                .sortBy(_.timestamp)
+                .sortBy(-_.coinAge)
               val txsToIncludeInBlock = txs.take(settings.transactionsPerBlock).toSeq
               generateBlock(wallet.secrets.head, parentBlocks.head, coinStakeBoxes, txsToIncludeInBlock, timestamp, history)
             } else {
