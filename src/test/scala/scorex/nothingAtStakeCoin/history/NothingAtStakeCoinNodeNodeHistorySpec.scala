@@ -28,7 +28,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
   with ScorexLogging {
 
   val numberOfBestChains: Int = 10
-  val numberOfTxsPerBlock: Int = NothingAtStakeCoinHistory.numberOfTxsPerBlock
+  val numberOfTxsPerBlock: Int = 10
   val STAKE_MIN_AGE: Long = 30 * 60 * 60 * 24 * 1000L
   val STAKE_MAX_AGE: Long = 90 * 60 * 60 * 24 * 1000L
 

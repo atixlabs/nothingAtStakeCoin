@@ -29,6 +29,7 @@ class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings)
 
     val historySettings = HistorySettings(
       numberOfBestChains = settings.numberOfBestChains,
+      transactionsPerBlock = settings.transactionsPerBlock,
       stakeMaxAgeInMs = settings.maxStakeMinutes * 60 * 1000,
       stakeMinAgeInMs = settings.minStakeMinutes * 60 * 1000)
 

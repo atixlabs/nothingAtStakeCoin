@@ -21,8 +21,10 @@ import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinInput, NothingAt
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
-// 30 and 90 days
-case class HistorySettings(numberOfBestChains: Int = 10, stakeMinAgeInMs: Long = 2592000000L, stakeMaxAgeInMs: Long = 7776000000L)
+case class HistorySettings(numberOfBestChains: Int = 10,
+                           transactionsPerBlock: Int = 10,
+                           stakeMinAgeInMs: Long = 2592000000L, // 30 days
+                           stakeMaxAgeInMs: Long = 7776000000L) // 90 days
 
 case class OutputBlockLocation(blockId: ByteBuffer, blockIndex: BlockIndexLength, txOutputIndex: TxOutputIndexLength)
 
@@ -66,9 +68,8 @@ case class NothingAtStakeCoinHistory(historySettings: HistorySettings = HistoryS
       val stakeTxValid: Boolean = block.txs.nonEmpty && checkStakeTx(block.txs.head, block.generator)
       val blockTimestampValid: Boolean = block.txs.forall(_.timestamp <= block.timestamp)
 
-      //FIXME: Check before appending a block
       val validCoinAge: Boolean = getCoinAge(block.txs).map(_ == block.coinAge).isSuccess
-      val numberOfTxPerBlockValid: Boolean = block.txs.length == NothingAtStakeCoinHistory.numberOfTxsPerBlock + 1
+      val numberOfTxPerBlockValid: Boolean = block.txs.length == historySettings.transactionsPerBlock + 1 // stake tx
 
       if (uniqueTxs && blockSignatureValid && stakeTxValid && blockTimestampValid && validCoinAge && numberOfTxPerBlockValid) {
         log.debug(s"Appending conditions met for block ${block.idAsString()}")
@@ -418,7 +419,4 @@ object NothingAtStakeCoinHistory {
   val daysToMs: Long = 60 * 60 * 24 * 1000
 
   val insertionOrder: AtomicLong = new AtomicLong(0)
-
-  //FIXME: Obtain values from settings
-  val numberOfTxsPerBlock = 10
 }
