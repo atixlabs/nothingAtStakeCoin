@@ -57,3 +57,9 @@ Provided by scorex, this app allows Rest API endpoint if configured in settings.
 In order to run tests, use sbt tool and run the following command:
 
 `sbt test`
+
+## CodeStyle
+
+There is already a configuration for [scalastyle](http://www.scalastyle.org/), to run it:
+
+`sbt scalastyle`
