@@ -159,7 +159,7 @@ object NothingAtStakeCoinNodeNodeViewModifierCompanion extends NodeViewModifierC
 
     val propositions = unspentsToUse match {
       case (unspentsAmount, boxes) if unspentsAmount > totalAmountToSend =>
-        toPropositions :+ (PublicKey25519Proposition.validPubKey(from).get, unspentsToUse._1 - totalAmountToSend)
+        (PublicKey25519Proposition.validPubKey(from).get, unspentsToUse._1 - totalAmountToSend) +: toPropositions
       case (unspentsAmount, boxes) if unspentsAmount == totalAmountToSend => toPropositions
       case (unspentsAmount, boxes) if unspentsAmount < totalAmountToSend => throw new Exception("Not Enough funds to spend")
     }
@@ -178,7 +178,7 @@ object NothingAtStakeCoinNodeNodeViewModifierCompanion extends NodeViewModifierC
   (Long, Seq[PublicKey25519NoncedBox]) = {
     acum match {
       case _ if acum >= totalAmountToSend || boxes.isEmpty => (acum, boxesToUse)
-      case _ if acum < totalAmountToSend => findUnspentsToPay(totalAmountToSend, boxes.tail, acum + boxes.head.value, boxesToUse :+ boxes.head)
+      case _ if acum < totalAmountToSend => findUnspentsToPay(totalAmountToSend, boxes.tail, acum + boxes.head.value, boxes.head +: boxesToUse)
     }
   }
 }
