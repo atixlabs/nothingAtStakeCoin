@@ -26,18 +26,12 @@ case class NothingAtStakeCoinBlock(override val parentId: ModifierId,
                                   )
   extends Block[PublicKey25519Proposition, NothingAtStakeCoinTransaction] {
 
-  override type BlockFields = ModifierId :: Timestamp :: GenerationSignature :: PublicKey25519Proposition ::
-    Version :: NothingAtStakeCoinBlock.CoinAgeLength ::
-    Seq[NothingAtStakeCoinTransaction] :: HNil
-
   override type M = NothingAtStakeCoinBlock
   type C = NothingAtStakeCoinBlockCompanion.type
 
   override val modifierTypeId: ModifierTypeId = NothingAtStakeCoinBlock.ModifierTypeId
 
   override def version: Version = NothingAtStakeCoinBlock.Version
-
-  override def blockFields: BlockFields = parentId :: timestamp :: generationSignature :: generator :: version :: coinAge :: txs :: HNil
 
   override def transactions: Option[Seq[NothingAtStakeCoinTransaction]] = Some(txs)
 
