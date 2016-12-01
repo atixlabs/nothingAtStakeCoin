@@ -860,7 +860,6 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
         unusedBoxes = unusedBoxes,
         fromPk = fromPk
       )._1
-      //      val block1 = nothingAtSakeCoinBlockGenerator(Some(genesisBlock.id), Some(Long.MaxValue)).sample.get
       val history1 = insertBlock(history, block1).get._1
       Given("A block is added resulting in history2")
       val block2 = nothingAtStakeCoinBlockConstructor(
@@ -870,7 +869,6 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
         unusedBoxes = unusedBoxes,
         fromPk = fromPk
       )._1
-      //      val block2 = nothingAtSakeCoinBlockGenerator(Some(genesisBlock.id), Some(0)).sample.get
       val history2 = insertBlock(history, block2).get._1
 
       When("Comparing amongst them")
