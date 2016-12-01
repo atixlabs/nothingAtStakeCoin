@@ -33,7 +33,7 @@ Besides Scorex configuration defined in a settings.json file, the following para
 |genesisTransactions | Transactions to be created when creating the initial state |
 |genesisTransactionAmount | Transaction amount that will be included in the genesis state |
 |minStakeMinutes | Minimum time (in minutes) an output needs to be unspent in order to be used in minting process |
-|minStakeMinutes | Maximum time (in minutes) an output needs to be unspent in order to be used in minting process |
+|maxStakeMinutes | Maximum time (in minutes) used to calculate block coinage. |
 | numberOfBestChains | Number of best chains to keep in history in order to contribute to |     
      
 ### Starting up
