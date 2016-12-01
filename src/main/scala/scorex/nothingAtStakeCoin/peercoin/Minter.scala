@@ -56,7 +56,7 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
               val parentBlocks = history.openSurfaceIds()
                 .foldLeft(Seq[Option[NothingAtStakeCoinBlock]]())((list, blockId) => history.blockById(blockId) +: list)
                 .flatten
-                .sortBy(_.timestamp)
+                .sortBy(-_.coinAge)
               val txsToIncludeInBlock = txs.take(settings.transactionsPerBlock).toSeq
               generateBlock(wallet.secrets.head, parentBlocks.head, coinStakeBoxes, txsToIncludeInBlock, timestamp, history)
             } else {
@@ -67,9 +67,9 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
         }
 
         if (block.isDefined) {
-          log.info(s"[MintLoop] Generated block! ${block.get.idAsString()}")
+          log.info(s"[MintLoop] Generated block! ${block.get.encodedId}")
           viewHolderRef ! LocallyGeneratedModifier.apply[PublicKey25519Proposition, NothingAtStakeCoinTransaction, NothingAtStakeCoinBlock](block.get)
-          log.info(s"[MintLoop] Block sent to view holder ${block.get.idAsString()}")
+          log.info(s"[MintLoop] Block sent to view holder ${block.get.encodedId}")
         } else {
           log.info("[MintLoop] No block generated")
         }
@@ -130,7 +130,8 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
             timestamp = timestamp,
             generatorKeys = minterPk,
             coinAge = blockCoinAge,
-            txs = stakeTransactionWithReward +: txs
+            stakeTx = Some(stakeTransactionWithReward),
+            txs = txs
           ))
           case Failure(e) => None
         }

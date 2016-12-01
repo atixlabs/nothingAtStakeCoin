@@ -1,5 +1,7 @@
 package scorex.nothingAtStakeCoin.block
 
+import java.nio.ByteBuffer
+
 import com.google.common.primitives.{Ints, Longs}
 import io.circe.Json
 import io.circe.syntax._
@@ -13,16 +15,20 @@ import scorex.core.{NodeViewModifier, NodeViewModifierCompanion}
 import scorex.crypto.encode.Base58
 import scorex.nothingAtStakeCoin.block.NothingAtStakeCoinBlock.{CoinAgeLength, GenerationSignature}
 import scorex.nothingAtStakeCoin.transaction.{NothingAtStakeCoinNodeNodeViewModifierCompanion, NothingAtStakeCoinTransaction}
-import shapeless.{::, HNil}
+import scorex.utils.Booleans
 
 import scala.util.{Failure, Success, Try}
+
+case class NothingAtStakeCoinBlockBody(stakeTx: Option[NothingAtStakeCoinTransaction], txs: Seq[NothingAtStakeCoinTransaction]) {
+  def allTransactions: Seq[NothingAtStakeCoinTransaction] = Seq(stakeTx).flatten ++ txs
+}
 
 case class NothingAtStakeCoinBlock(override val parentId: ModifierId,
                                    override val timestamp: Timestamp,
                                    generationSignature: GenerationSignature,
                                    generator: PublicKey25519Proposition,
                                    coinAge: CoinAgeLength,
-                                   txs: Seq[NothingAtStakeCoinTransaction]
+                                   body: NothingAtStakeCoinBlockBody
                                   )
   extends Block[PublicKey25519Proposition, NothingAtStakeCoinTransaction] {
 
@@ -33,23 +39,22 @@ case class NothingAtStakeCoinBlock(override val parentId: ModifierId,
 
   override def version: Version = NothingAtStakeCoinBlock.Version
 
-  override def transactions: Option[Seq[NothingAtStakeCoinTransaction]] = Some(txs)
+  override def transactions: Option[Seq[NothingAtStakeCoinTransaction]] = Some(body.allTransactions)
 
   override def id: ModifierId = FastCryptographicHash(companion.bytes(this))
 
   override def companion: C = NothingAtStakeCoinBlockCompanion
 
   override def json: Json = Map(
-    "id" -> idAsString().asJson,
+    "id" -> encodedId.asJson,
     "parentId" -> Base58.encode(parentId).asJson,
     "timestamp" -> timestamp.asJson,
     "generationSignature" -> Base58.encode(generationSignature).asJson,
     "generator" -> Base58.encode(generator.pubKeyBytes).asJson,
     "coinAge" -> coinAge.asJson,
-    "txs" -> txs.map(_.json).asJson
+    "txs" -> transactions.getOrElse(Seq()).map(_.json).asJson
   ).asJson
 
-  def idAsString(): String = Base58.encode(id)
 }
 
 object NothingAtStakeCoinBlock {
@@ -73,15 +78,16 @@ object NothingAtStakeCoinBlock {
             timestamp: Timestamp,
             generatorKeys: PrivateKey25519,
             coinAge: CoinAgeLength,
+            stakeTx: Option[NothingAtStakeCoinTransaction],
             txs: Seq[NothingAtStakeCoinTransaction]): NothingAtStakeCoinBlock = {
 
     val unsignedBlock: NothingAtStakeCoinBlock = NothingAtStakeCoinBlock(
-      parentId,
-      timestamp,
+      parentId = parentId,
+      timestamp = timestamp,
       generationSignature = Array.fill(NothingAtStakeCoinBlock.SignatureLength)(1: Byte),
       generator = generatorKeys.publicImage,
-      coinAge,
-      txs = txs
+      coinAge = coinAge,
+      body = NothingAtStakeCoinBlockBody(stakeTx = stakeTx, txs = txs)
     )
 
     val generationSignature = PrivateKey25519Companion.sign(generatorKeys, unsignedBlock.companion.messageToSign(unsignedBlock))
@@ -96,9 +102,10 @@ object NothingAtStakeCoinBlockCompanion extends NodeViewModifierCompanion[Nothin
       Longs.toByteArray(block.timestamp) ++
       Array(block.version) ++
       Longs.toByteArray(block.coinAge) ++
-      block.generator.pubKeyBytes ++ {
-      val cntTxs = Ints.toByteArray(block.txs.size)
-      block.txs.foldLeft(cntTxs) { case (bytes, tx) => bytes ++ NothingAtStakeCoinNodeNodeViewModifierCompanion.bytes(tx) }
+      block.generator.pubKeyBytes ++
+      block.body.stakeTx.fold(ByteBuffer.allocate(1).put(0: Byte).array()) { _ => ByteBuffer.allocate(1).put(1: Byte).array() } ++ {
+      val cntTxs = Ints.toByteArray(block.body.allTransactions.size)
+      block.body.allTransactions.foldLeft(cntTxs) { case (bytes, tx) => bytes ++ NothingAtStakeCoinNodeNodeViewModifierCompanion.bytes(tx) }
     }
   }
 
@@ -119,11 +126,22 @@ object NothingAtStakeCoinBlockCompanion extends NodeViewModifierCompanion[Nothin
     val generator = PublicKey25519Proposition(bytes.slice(s0 + NothingAtStakeCoinBlock.SignatureLength,
       s0 + NothingAtStakeCoinBlock.SignatureLength + 32))
     val s1 = s0 + NothingAtStakeCoinBlock.SignatureLength + 32
-    val cntTxs = Ints.fromByteArray(bytes.slice(s1, s1 + 4))
-    val txsBytes = bytes.slice(s1 + 4, s1 + 4 + bytes.length - 1)
+    val hasStakeTx = Booleans.fromByteArray(bytes.slice(s1, s1 + 1))
+    val s2 = s1 + 1
+    val cntTxs = Ints.fromByteArray(bytes.slice(s2, s2 + 4))
+    val txsBytes = bytes.slice(s2 + 4, s2 + 4 + bytes.length - 1)
     val optionalTxs = NothingAtStakeCoinNodeNodeViewModifierCompanion.parseTransactionsArray(cntTxs, txsBytes)
     optionalTxs match {
-      case Success(txs) => NothingAtStakeCoinBlock(parentId, timestamp, generationSignature, generator, coinAge, txs)
+      case Success(txs) => {
+        val body = if (hasStakeTx) NothingAtStakeCoinBlockBody(Some(txs.head), txs.tail) else NothingAtStakeCoinBlockBody(None, txs)
+        NothingAtStakeCoinBlock(
+          parentId = parentId,
+          timestamp = timestamp,
+          generationSignature = generationSignature,
+          generator = generator,
+          coinAge = coinAge,
+          body = body)
+      }
       case Failure(e) => throw e
     }
   }

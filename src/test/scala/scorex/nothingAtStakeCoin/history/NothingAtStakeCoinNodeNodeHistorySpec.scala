@@ -431,7 +431,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
       When("a tx from the outputs of genesis block is created")
       val txTimestampDays = 15
-      val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
+      val genesisBlockGeneratedBoxes = genesisBlock.body.allTransactions.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
         genesisBlockGeneratedBoxes.map(b => b.nonce).toIndexedSeq,
@@ -458,7 +458,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
       When("a tx from the outputs of genesis block is created")
       val txTimestamp = 30 * daysToMs - 1
-      val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
+      val genesisBlockGeneratedBoxes = genesisBlock.body.allTransactions.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
         genesisBlockGeneratedBoxes.map(b => b.nonce).toIndexedSeq,
@@ -485,7 +485,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
       When("a tx from the outputs of genesis block is created")
       val txTimestampDays = 30
-      val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
+      val genesisBlockGeneratedBoxes = genesisBlock.body.allTransactions.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
         genesisBlockGeneratedBoxes.map(b => b.nonce).toIndexedSeq,
@@ -511,7 +511,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
       When("a tx from the outputs of genesis block is created")
       val txTimestamp = 30 * daysToMs + 1
-      val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
+      val genesisBlockGeneratedBoxes = genesisBlock.body.allTransactions.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
         genesisBlockGeneratedBoxes.map(b => b.nonce).toIndexedSeq,
@@ -537,7 +537,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
       When("a tx from the outputs of genesis block is created")
       val txTimestampDays = 60
-      val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
+      val genesisBlockGeneratedBoxes = genesisBlock.body.allTransactions.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
         genesisBlockGeneratedBoxes.map(b => b.nonce).toIndexedSeq,
@@ -563,7 +563,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
       When("a tx from the outputs of genesis block is created")
       val txTimestamp = 90 * daysToMs - 1
-      val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
+      val genesisBlockGeneratedBoxes = genesisBlock.body.allTransactions.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
         genesisBlockGeneratedBoxes.map(b => b.nonce).toIndexedSeq,
@@ -589,7 +589,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
       When("a tx from the outputs of genesis block is created")
       val txTimestampDays = 90
-      val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
+      val genesisBlockGeneratedBoxes = genesisBlock.body.allTransactions.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
         genesisBlockGeneratedBoxes.map(b => b.nonce).toIndexedSeq,
@@ -615,7 +615,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
       When("a tx from the outputs of genesis block is created")
       val txTimestamp = 90 * daysToMs + 1
-      val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
+      val genesisBlockGeneratedBoxes = genesisBlock.body.allTransactions.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
         genesisBlockGeneratedBoxes.map(b => b.nonce).toIndexedSeq,
@@ -641,7 +641,7 @@ class NothingAtStakeCoinNodeNodeHistorySpec extends FeatureSpec
 
       When("a tx from the outputs of genesis block is created")
       val txTimestampDays = 120
-      val genesisBlockGeneratedBoxes = genesisBlock.txs.flatMap(t => t.newBoxes)
+      val genesisBlockGeneratedBoxes = genesisBlock.body.allTransactions.flatMap(t => t.newBoxes)
       val newTx = NothingAtStakeCoinTransaction(
         fromPk,
         genesisBlockGeneratedBoxes.map(b => b.nonce).toIndexedSeq,
@@ -911,8 +911,7 @@ object NothingAtStakeCoinNodeNodeHistorySpec {
         ) +: prevTxs
     }
 
-    val emptyTx = NothingAtStakeCoinTransaction(IndexedSeq(), IndexedSeq(), IndexedSeq(), 0, 0)
-    val genesisBlock = NothingAtStakeCoinBlock(NothingAtStakeCoinBlock.GenesisParentBlockId, timestamp, fromPk, 0, emptyTx +: txs)
+    val genesisBlock = NothingAtStakeCoinBlock(NothingAtStakeCoinBlock.GenesisParentBlockId, timestamp, fromPk, 0, None, txs)
     val history = insertBlock(NothingAtStakeCoinHistory(), genesisBlock).get._1
     (history, genesisBlock)
   }
@@ -983,7 +982,8 @@ object NothingAtStakeCoinNodeNodeHistorySpec {
       timestamp = blockTimestamp,
       generatorKeys = fromPk,
       coinAge = blockCoinAge + coinAgeParent,
-      txs = coinStakeTx +: txs
+      stakeTx = Some(coinStakeTx),
+      txs = txs
     ), newUnusedBoxes)
   }
 

@@ -109,6 +109,7 @@ class MinterSpec extends TestKit(ActorSystem("MinterSpec"))
         timestamp = 0L,
         generatorKeys = walletPk,
         coinAge = 0L,
+        stakeTx = None,
         txs = Seq(tx1InputTx, tx2InputTx)
       )
 
@@ -163,6 +164,7 @@ class MinterSpec extends TestKit(ActorSystem("MinterSpec"))
         timestamp = 0L,
         generatorKeys = walletPk,
         coinAge = 0L,
+        stakeTx = None,
         txs = Seq(toBeUsedInMintTx, tx1InputTx, tx2InputTx)
       )
 

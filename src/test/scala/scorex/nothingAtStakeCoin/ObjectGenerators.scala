@@ -85,7 +85,8 @@ trait ObjectGenerators {
     timestamp = timestamp,
     generatorKeys = key._1,
     coinAge = coinAge,
-    txs = coinStakeTx +: txs.distinct
+    stakeTx = Some(coinStakeTx),
+    txs = txs.distinct
   )
 
   def genNothingAtStakeCoinBlockSeqGeneratorSeqOfN(size: Int, p: Option[ModifierId] = None,
