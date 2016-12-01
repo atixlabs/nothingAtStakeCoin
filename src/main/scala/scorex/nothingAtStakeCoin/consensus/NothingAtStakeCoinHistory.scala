@@ -61,14 +61,15 @@ case class NothingAtStakeCoinHistory(historySettings: HistorySettings = HistoryS
         outputBlockLocations = outputBlockLocationSeq(block))
       Success((newHistory, None))
     } else {
-      val uniqueTxs: Boolean = block.txs.toSet.size == block.txs.length //Check for duplicate txs
+      val blockTxs = block.body.allTransactions
+      val uniqueTxs: Boolean = blockTxs.toSet.size == blockTxs.length //Check for duplicate txs
       val blockSignatureValid: Boolean = block.generator.verify(//Check block generator matches signature
         block.companion.messageToSign(block),
         block.generationSignature)
-      val stakeTxValid: Boolean = block.txs.nonEmpty && checkStakeTx(block.txs.head, block.generator)
-      val blockTimestampValid: Boolean = block.txs.forall(_.timestamp <= block.timestamp)
-      val validCoinAge: Boolean = getCoinAge(block.txs).map(_ == block.coinAge).isSuccess
-      val numberOfTxPerBlockValid: Boolean = block.txs.length == historySettings.transactionsPerBlock + 1 // stake tx
+      val stakeTxValid: Boolean = blockTxs.nonEmpty && checkStakeTx(block.body.stakeTx.get, block.generator)
+      val blockTimestampValid: Boolean = blockTxs.forall(_.timestamp <= block.timestamp)
+      val validCoinAge: Boolean = getCoinAge(blockTxs).map(_ == block.coinAge).isSuccess
+      val numberOfTxPerBlockValid: Boolean = blockTxs.length == historySettings.transactionsPerBlock + 1 // stake tx
 
       if (uniqueTxs && blockSignatureValid && stakeTxValid && blockTimestampValid && validCoinAge && numberOfTxPerBlockValid) {
         log.debug(s"Appending conditions met for block ${block.encodedId}")
@@ -176,7 +177,7 @@ case class NothingAtStakeCoinHistory(historySettings: HistorySettings = HistoryS
           (currHistory: NothingAtStakeCoinHistory, blockToRemove: NothingAtStakeCoinBlock) =>
             log.debug(s"Removing block ${blockToRemove.encodedId} from history")
             //Remove txs from outputBlockLocations
-            val blockToRemoveOutputs = blockToRemove.txs.flatMap(tx => tx.newBoxes.map(box => wrapId(box.id)))
+            val blockToRemoveOutputs = blockToRemove.body.allTransactions.flatMap(tx => tx.newBoxes.map(box => wrapId(box.id)))
             val newOutputBlockLocations = currHistory.outputBlockLocations -- blockToRemoveOutputs
             //Remove blockToRemoveId
             val toRemoveId = wrapId(blockToRemove.id)
@@ -210,7 +211,7 @@ case class NothingAtStakeCoinHistory(historySettings: HistorySettings = HistoryS
           val maybeBlockLocation = outputBlockLocations.get(wrapId(txFromInput.id))
           val maybeBlock: Option[NothingAtStakeCoinBlock] = maybeBlockLocation.flatMap(blockLocation => blocks.get(blockLocation.blockId))
           val maybeTx: Option[NothingAtStakeCoinTransaction] = maybeBlock.flatMap(block => Try {
-            block.txs(maybeBlockLocation.get.blockIndex)
+            block.body.allTransactions(maybeBlockLocation.get.blockIndex)
           }.toOption)
           val maybeOutput: Option[NothingAtStakeCoinOutput] = maybeTx.flatMap(tx => Try {
             tx.to(maybeBlockLocation.get.txOutputIndex)
@@ -315,7 +316,7 @@ case class NothingAtStakeCoinHistory(historySettings: HistorySettings = HistoryS
   }
 
   private def outputBlockLocationSeq(block: NothingAtStakeCoinBlock): Map[ByteBuffer, OutputBlockLocation] = {
-    val txWithBlockIndex: Seq[(NothingAtStakeCoinTransaction, Int)] = block.txs.zipWithIndex
+    val txWithBlockIndex: Seq[(NothingAtStakeCoinTransaction, Int)] = block.body.allTransactions.zipWithIndex
     val boxesWithBlockLocation: Seq[(ByteBuffer, OutputBlockLocation)] =
       txWithBlockIndex.flatMap { case (tx: NothingAtStakeCoinTransaction, blockIndex: Int) =>
         val boxesWithTxOutputIndex: Seq[(PublicKey25519NoncedBox, TxOutputIndexLength)] = tx.newBoxes.toIndexedSeq.zipWithIndex
@@ -336,7 +337,7 @@ case class NothingAtStakeCoinHistory(historySettings: HistorySettings = HistoryS
         case Success(partialSumInput) =>
           outputBlockLocations.get(wrapId(input.id)) match {
             case Some(OutputBlockLocation(blockId, blockIndex, txOutputIndex)) =>
-              Success(partialSumInput + blocks(blockId).txs(blockIndex).to(txOutputIndex).value)
+              Success(partialSumInput + blocks(blockId).body.allTransactions(blockIndex).to(txOutputIndex).value)
             case None => Failure(new Exception("checkStakeTx: stakeTx input not found on history"))
           }
         case Failure(e) => Failure(e)

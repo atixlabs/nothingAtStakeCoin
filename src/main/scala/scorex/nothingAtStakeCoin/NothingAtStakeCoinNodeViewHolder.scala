@@ -3,7 +3,7 @@ package scorex.nothingAtStakeCoin
 import scorex.core.NodeViewModifier.ModifierTypeId
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.{NodeViewHolder, NodeViewModifier, NodeViewModifierCompanion}
-import scorex.nothingAtStakeCoin.block.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockCompanion, NothingAtStakeCoinSyncInfo}
+import scorex.nothingAtStakeCoin.block.{NothingAtStakeCoinBlock, NothingAtStakeCoinBlockBody, NothingAtStakeCoinBlockCompanion, NothingAtStakeCoinSyncInfo}
 import scorex.nothingAtStakeCoin.consensus.{HistorySettings, NothingAtStakeCoinHistory}
 import scorex.nothingAtStakeCoin.settings.NothingAtStakeCoinSettings
 import scorex.nothingAtStakeCoin.transaction.state.NothingAtStakeCoinMinimalState
@@ -53,6 +53,7 @@ class NothingAtStakeCoinNodeViewHolder(settings: NothingAtStakeCoinSettings)
         timestamp = 0,
         generatorKeys = wallet.secretByPublicImage(pubKeyGenesisBlock).get,
         coinAge = 0,
+        stakeTx = None,
         txs = genesisTxs
       )
 
