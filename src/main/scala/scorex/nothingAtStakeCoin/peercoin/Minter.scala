@@ -130,7 +130,8 @@ class Minter(settings: NothingAtStakeCoinSettings, viewHolderRef: ActorRef) exte
             timestamp = timestamp,
             generatorKeys = minterPk,
             coinAge = blockCoinAge,
-            txs = stakeTransactionWithReward +: txs
+            stakeTx = Some(stakeTransactionWithReward),
+            txs = txs
           ))
           case Failure(e) => None
         }

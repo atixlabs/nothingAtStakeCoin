@@ -37,7 +37,7 @@ case class NothingAtStakeCoinMinimalState(
       if (isNotGenesis && !areValid(mod.transactions.get.tail)) throw new RuntimeException(s"Invalid transaction detected in block ${mod.encodedId}")
 
       val initial = (Set(): Set[Array[Byte]], Set(): Set[PublicKey25519NoncedBox])
-      val toChange = mod.txs.foldLeft(initial) {
+      val toChange = mod.body.allTransactions.foldLeft(initial) {
         case (changes, tx) => (
           changes._1 ++ tx.from.map(_.id),
           changes._2 ++ tx.newBoxes.toSet
