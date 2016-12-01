@@ -1,6 +1,7 @@
 # Nothing At Stake Coin
 
-[![Build Status](https://travis-ci.org/atixlabs/nothingAtStakeCoin.svg?branch=develop)](https://travis-ci.org/atixlabs/nothingAtStakeCoin)
+- Master: [![Build Status](https://travis-ci.org/atixlabs/nothingAtStakeCoin.svg?branch=develop)](https://travis-ci.org/atixlabs/nothingAtStakeCoin)
+- Develop: [![Build Status](https://travis-ci.org/atixlabs/nothingAtStakeCoin.svg?branch=develop)](https://travis-ci.org/atixlabs/nothingAtStakeCoin)
 
 ## Goal
 
